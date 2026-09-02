@@ -97,6 +97,10 @@ Kali specifically. Anything platform-conditional belongs in `browser.py`.
 - Playwright call sites must be exercised by a live test. They are the code
   that touches other people's devices; "it has never run" is not an acceptable
   state for them.
+- **The viewer's JavaScript counts as code that must run.** `test_html_report.py`
+  asserts the document; `test_integration_viewer.py` opens a real report in a
+  browser and drives it. A new renderer, tab, or control needs a case there —
+  the `[hidden]` bug shipped precisely because a string test cannot click.
 - New heuristics (login detection, verdict classification) need a test for both
   the positive and the negative case.
 - CI (`.github/workflows/ci.yml`) runs the offline suite on 3.10 and 3.12 with

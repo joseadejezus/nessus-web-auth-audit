@@ -62,6 +62,15 @@ results".
 
   They skip themselves when Chromium is absent, so the offline suite stays green
   on a machine with no browser.
+- **`tests/test_integration_viewer.py`** — the same treatment for the HTML
+  viewer, which `test_html_report.py` could only assert the *document* of, never
+  the behaviour. One lab scan produces a report with screenshots and attempts in
+  it, then a browser drives it: all seven tabs rendered with a `pageerror`
+  listener attached (a JS exception in any renderer now fails the suite), the
+  controls row and verdict chips hidden only where they should be, the chips
+  filtering and toggling off, `<dialog>.showModal()` opening and closing the
+  lightbox, and the lazy-loaded data-URI screenshot decoding to a non-zero
+  `naturalWidth`. Written after the first live run; not yet executed.
 - **`.github/workflows/ci.yml`** — three jobs. `offline` runs
   `pytest`/`ruff`/`mypy`/`bandit` on 3.10 and 3.12 with **no** browser installed
   (which is also how the skip path gets tested); `integration` installs Chromium
@@ -210,9 +219,11 @@ Docs: `CLAUDE.md`, `README.md`, `ARCHITECTURE.md`, `SECURITY.md`, `USAGE.md`.
 
 ## Current work
 
-None in progress. The full gate is green on Kali (see "Tests / results"). CI has
-been pushed but its first run has not been looked at, and the manual viewer pass
-has not been done.
+`tests/test_integration_viewer.py` is written but has never run — five tests
+that drive the HTML viewer in a real browser, replacing the manual click-through
+that known issue 3 used to require. Everything else is green on Kali (see
+"Tests / results"); CI's own state after the `ruff I001` fix has not been
+checked.
 
 ## Tests / results
 
@@ -324,10 +335,12 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
    beat the UA stylesheet's `[hidden]` rule, so `el.hidden = true` was a no-op
    and the verdict chips showed on every tab. Fixed with an explicit
    `[hidden] { display: none !important; }` and a regression test.
-   Still unverified, because they need a report containing screenshots and
-   attempts (i.e. an `--authorized` run): `<dialog>.showModal()` for the
-   screenshot lightbox, the verdict chips actually filtering, and lazy-loaded
-   data-URI images.
+   The three things that needed a report containing screenshots and attempts —
+   `<dialog>.showModal()` for the lightbox, the verdict chips actually
+   filtering, and lazy-loaded data-URI images decoding — are now covered by
+   `tests/test_integration_viewer.py`, which produces exactly that report from a
+   lab scan and drives it. **Written, not yet run.** Once it passes, the viewer
+   has no manual verification step left.
 4. Login-page discovery is limited to what the Nessus scan recorded; GET-only
    probing of common login paths was deliberately not built.
 5. Only form-based logins are driven; HTTP Basic/NTLM/client-cert returns
@@ -440,12 +453,12 @@ mypy, bandit). Everything below is genuinely still open, in priority order.
    failed on `ruff I001` in `browser.py`'s import block (see session 5's last
    bullet); the fix is pushed but, as ever, was written on a machine that
    cannot run ruff.
-2. **Manual viewer pass on a lab report** — run `python tests/lab_server.py
-   --port 8080 --write-nessus /tmp/lab.nessus`, scan it with `--authorized
-   --default-creds`, then open `report.html` and exercise the three things
-   known issue 3 still lists as unverified: `<dialog>.showModal()` for the
-   screenshot lightbox, the verdict chips actually filtering, and lazy-loaded
-   data-URI images.
+2. **Run `tests/test_integration_viewer.py`** — five tests that open a real lab
+   report in Chromium and drive the viewer (every tab with a page-error
+   listener attached, chips filtering, lightbox open/close, data-URI images
+   decoding). Written but never executed; expect selector or timing fixes.
+   `pytest -m integration -rs` runs it alongside the other live tests. If it
+   goes green, known issue 3 closes and the viewer needs no manual pass.
 4. `nwaa setup --check` as root **and** as `jose`, confirming the browsers path
    and `--no-sandbox` reporting match reality on each (known issue 13).
 5. **Validate signatures against real devices** in a lab: at minimum an HP MFP,
