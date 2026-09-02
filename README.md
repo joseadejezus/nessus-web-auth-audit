@@ -11,6 +11,7 @@
 
 **Turn a `.nessus` file into a prioritized list of web logins that still answer to their factory password.**
 
+[![CI](https://github.com/joseadejezus/nessus-web-auth-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/joseadejezus/nessus-web-auth-audit/actions/workflows/ci.yml)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![platform](https://img.shields.io/badge/platform-Kali%20Linux-557C94)
@@ -201,10 +202,10 @@ Credentials come from exactly two places: your JSON file, or the bundled profile
 | --- | --- |
 | ✅ | 147 offline tests passing; `ruff`, `mypy`, `bandit` clean |
 | ✅ | Parsing, classification, fingerprinting, and all three report formats |
-| ⚠️ | Browser-driving code — screenshots, live probing, credential submission — **has not been run against a live target yet** |
+| 🧪 | Browser-driving code — screenshots, live probing, credential submission, the scope guard — now has live tests (`pytest -m integration`) that drive a real Chromium against a loopback lab device. **Written, first run pending** — see [PROJECT_STATE.md](docs/PROJECT_STATE.md) |
 | ⚠️ | Fingerprint signatures were written from vendor documentation, not captured banners |
 
-Validate against a lab device you control before using it on an engagement. The procedure is in [docs/USAGE.md](docs/USAGE.md#manual-verification-procedure-not-covered-by-the-automated-tests).
+Validate against a lab device you control before using it on an engagement. The procedure is in [docs/USAGE.md](docs/USAGE.md#manual-verification-procedure-not-covered-by-any-test).
 
 ---
 

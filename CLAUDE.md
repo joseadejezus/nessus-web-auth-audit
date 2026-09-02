@@ -76,8 +76,22 @@ Kali specifically. Anything platform-conditional belongs in `browser.py`.
 
 ## Testing
 
-- `pytest` runs offline: no network, no browser. Anything requiring a live
-  target belongs in a manual test procedure documented in `docs/USAGE.md`,
-  not in the default suite.
+- **The default suite stays offline.** No network, no browser, no external
+  target — `pytest` on a machine with neither must be green.
+- **The live tests are the one exception, and they bring their own target.**
+  `tests/test_integration_live.py` drives a real Chromium against
+  `tests/lab_server.py`, a loopback HTTP server the test starts itself. They
+  are marked `integration`, skip themselves when no Chromium is installed, and
+  never contact a host the test did not stand up. A live test that needs a
+  target someone else operates does not belong here — that stays a manual
+  procedure in `docs/USAGE.md`.
+- Playwright call sites must be exercised by a live test. They are the code
+  that touches other people's devices; "it has never run" is not an acceptable
+  state for them.
 - New heuristics (login detection, verdict classification) need a test for both
   the positive and the negative case.
+- CI (`.github/workflows/ci.yml`) runs the offline suite on 3.10 and 3.12 with
+  no browser installed — which is also how the skip path gets tested — plus a
+  job that installs Chromium and runs `pytest -m integration` with
+  `NWAA_REQUIRE_INTEGRATION=1`, so a broken browser install cannot pass as a
+  green run with zero tests.

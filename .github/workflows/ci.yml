@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    name: offline checks (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor from pyproject's requires-python, and a current release.
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      # No Chromium is installed in this job on purpose: the live tests must
+      # skip cleanly on a machine without a browser, and this proves they do.
+      - name: pytest
+        run: pytest -rs
+
+      - name: ruff
+        run: ruff check .
+
+      - name: mypy
+        run: mypy
+
+      - name: bandit
+        run: bandit -r src
+
+  integration:
+    name: live browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Cache Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
+
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+
+      - name: What nwaa sees about this machine
+        run: nwaa setup --check
+
+      # NWAA_REQUIRE_INTEGRATION turns the "no browser, skip" path into a hard
+      # failure, so a broken browser install cannot show up as a green run
+      # with zero tests in it.
+      - name: pytest (integration)
+        env:
+          NWAA_REQUIRE_INTEGRATION: "1"
+        run: pytest -m integration -rs
+
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    # Advisories land against the environment's own pip and other tooling as
+    # often as against this project's dependencies, so this reports rather
+    # than blocks. Read it; do not ignore it.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: pip-audit
+        run: pip-audit --skip-editable

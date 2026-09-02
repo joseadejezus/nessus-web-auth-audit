@@ -69,6 +69,13 @@ filename does this get) is a pure function with no Playwright import, so it is
 unit-tested offline. Playwright is imported lazily inside the two functions that
 actually drive a browser.
 
+The impure half — the browser-driving functions themselves — is covered by
+`tests/test_integration_live.py`, which drives a real Chromium against
+`tests/lab_server.py`, a loopback HTTP server that impersonates an HP printer's
+web interface. Those tests are marked `integration` and skip themselves when no
+Chromium is installed, so the offline suite is still the whole suite on a
+machine without a browser.
+
 ## Key design decisions
 
 **Service is an aggregate, ReportItem is raw.** A Nessus port is described by

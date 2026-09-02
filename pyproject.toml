@@ -54,6 +54,9 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q"
+markers = [
+    "integration: drives a real Chromium against the local lab server (tests/lab_server.py); skipped when no browser is installed",
+]
 
 [tool.ruff]
 line-length = 110

@@ -5,8 +5,13 @@ _Last updated: 2026-09-02_
 ## Where to pick up
 
 The offline half of the tool is **built, executed, and green**. The active half
-(anything that drives a browser) is **written but has never run**. Closing that
-is the next job — see "Exact next steps".
+(anything that drives a browser) now has a lab target and live tests written
+against it, plus CI to run them — **but none of that has been executed yet**.
+It was written on the Windows box, which has no Python.
+
+**The very next action is to pull on Kali and run `nwaa setup` then
+`pytest -m integration`**, then record the real output here. See "Exact next
+steps".
 
 ## How this project is developed (two machines)
 
@@ -22,6 +27,59 @@ pulls. On Kali, work as `jose` and inside the venv — as root, pipx and
 Playwright use `/root` and you get a second, invisible install.
 
 ## Completed work
+
+### Session 5 — a lab target, live tests, CI (written on Windows; not run)
+
+The point of this session was to stop the browser-driving half of the tool from
+being permanently untested. Nothing here has been executed — see "Tests /
+results".
+
+- **`tests/lab_server.py`** — a loopback HTTP server that impersonates an HP
+  printer's embedded web server: `Server: HP HTTP Server` and an HP page title
+  (the two things a live fingerprint scores), a form-based login that accepts
+  `admin` with a blank password and answers everything else with "Invalid user
+  name or password", and a 303 to a *different* URL with no password field on
+  success — which is exactly what `classify_login_outcome` requires before it
+  will say SUCCESS. It records every request it receives, so a test can assert
+  that a request the scope guard should have blocked never arrived. It also
+  writes the matching `.nessus` (`write_lab_nessus`), since scope comes from the
+  scan file and cannot be widened by a flag. Runnable by hand:
+  `python tests/lab_server.py --port 8080 --write-nessus /tmp/lab.nessus`.
+- **`tests/test_integration_live.py`** — five tests, marked `integration`,
+  driving a real Chromium through `cli.main()`:
+  1. the whole chain — scan file → login page → screenshot (with the banner the
+     fingerprint came from) → `hp-printer` at `source: nessus+http` → the HP
+     profile's first credential succeeding and its second failing, with the lab
+     server confirming it received exactly two POSTs;
+  2. a scan file with no vendor hint at all, so `source: http` proves the live
+     banner alone produced the match;
+  3. a page with no password field → `not_tested`, and nothing submitted;
+  4. the route guard: a login page carrying two 1x1 images, one on the
+     authorized host and one on `127.0.0.2`. The in-scope one must be requested
+     (proof the browser was loading images at all) and the off-scope one must
+     not (proof the guard blocked it);
+  5. a login URL on a port the scan never saw → refused before navigation, with
+     the lab server recording zero requests.
+
+  They skip themselves when Chromium is absent, so the offline suite stays green
+  on a machine with no browser.
+- **`.github/workflows/ci.yml`** — three jobs. `offline` runs
+  `pytest`/`ruff`/`mypy`/`bandit` on 3.10 and 3.12 with **no** browser installed
+  (which is also how the skip path gets tested); `integration` installs Chromium
+  with `--with-deps`, prints `nwaa setup --check`, and runs `pytest -m
+  integration` with `NWAA_REQUIRE_INTEGRATION=1` so a broken browser install
+  fails loudly instead of passing as a green run with zero tests; `audit` runs
+  `pip-audit` with `continue-on-error` (advisories land against the environment's
+  own pip as often as against this project).
+- **`CLAUDE.md`'s testing rule rewritten rather than broken.** It said live
+  targets belong in a manual procedure, never the suite. It now says the suite
+  stays offline *except* for live tests that bring their own loopback target,
+  and that Playwright call sites must be covered by one — "it has never run" is
+  not an acceptable state for the code that touches other people's devices.
+- `docs/USAGE.md` gained "The local lab target" and "Automated live tests"
+  sections; the manual procedure shrank to the three things a test genuinely
+  cannot do (viewer lightbox/chips by hand, root vs. non-root on Kali, and real
+  devices).
 
 ### Session 4 — first execution, publish, README
 
@@ -138,7 +196,10 @@ Docs: `CLAUDE.md`, `README.md`, `ARCHITECTURE.md`, `SECURITY.md`, `USAGE.md`.
 
 ## Current work
 
-None in progress.
+Session 5's lab server, live tests and CI workflow are committed but **have
+never been executed** — they were written on the Windows box, which has no
+Python. Running them on Kali is the next action, and any of the five live tests
+may need adjusting once a real browser meets a real page.
 
 ## Tests / results
 
@@ -168,10 +229,11 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
   → report.json + report.txt + report.html all written
 ```
 
-Everything the suite covers is offline by design. **What still has no execution
-coverage at all is every line that drives a browser**: `screenshot_login_pages`,
-`test_credentials_against_pages`, `probe_login_pages`, and the JS in
-`html_report.py`. Those need a live target — see "Exact next steps".
+Those numbers are from **session 4** and predate session 5's files. The 147
+offline tests are unaffected by them (the live module skips itself), but nothing
+in session 5 has been run: `pytest -m integration` has never executed, the lab
+server has never served a request, and the CI workflow has never been triggered.
+Replace this paragraph with real output once it has.
 
 Re-run the full gate with:
 
@@ -195,11 +257,12 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
 ## Known issues
 
 1. The offline suite passes (147 tests), but **the browser-driving code has
-   never run**. That is the single biggest remaining unknown.
+   never run**. Session 5 wrote the tests that would run it; they have not been
+   executed. That is still the single biggest remaining unknown.
 2. Playwright call sites (`screenshot_login_pages`, `test_credentials_against_pages`,
-   `probe_login_pages`, `browser.py`) have no automated coverage — they need a
-   real browser. `docs/USAGE.md` has a manual verification procedure.
-   `probe_open_page` *is* covered, via stub page/response objects.
+   `probe_login_pages`, `browser.py`) now have automated coverage in
+   `tests/test_integration_live.py` — pending its first run. `probe_open_page`
+   was already covered via stub page/response objects.
 3. The JS in `html_report.py` is **verified in a browser** for everything a
    parse-only report can exercise (2026-09-02, Kali/Firefox, dark mode): header,
    summary cards, all seven tabs, Overview, the Devices/Login pages/Plaintext/
@@ -225,7 +288,10 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
    capture over 8 MB is linked rather than inlined.
 8. `ruff` E501 is disabled for `html_report.py` because it holds the HTML/CSS/JS
    template as a string.
-9. No CI configuration (no git repo on this machine to attach one to).
+9. CI exists (`.github/workflows/ci.yml`) but has never run. The README badge
+   will show "no status" until the first push to `main`. The `integration` job
+   depends on `playwright install --with-deps chromium` working on
+   `ubuntu-latest`; if it does not, that job needs pinning, not disabling.
 10. **Fingerprint signatures have never seen a real device banner.** The regexes
     were written from vendor documentation, not from captured traffic. The
     likeliest failure modes are a missed match (falls back to `generic-*`, or to
@@ -244,6 +310,15 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
     on an actual Kali box.
 14. `--profile` forces one profile onto *every* login page in the scan. For a
     mixed estate, run it against a filtered `.nessus` or rely on fingerprinting.
+15. **The route guard is host-level, the pre-navigation check is host+port.**
+    `install_scope_guard` calls `is_host_in_scope`, which ignores the port, so a
+    redirect or subresource pointing at an *unscanned port on a scanned host*
+    is allowed through, even though the tool would never navigate there itself
+    (`_attempts_for_page`/`screenshot_login_pages` check `is_url_in_scope`
+    first). Noticed while writing the live scope test, not changed: tightening
+    the guard to host+port would also block a device that legitimately redirects
+    its login to another port on itself, which is common on BMCs. Decide
+    deliberately; if it changes, the live test needs a case for it.
 
 ## Security decisions
 
@@ -279,42 +354,43 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
 
 Done in session 4 (do not redo): environment setup, `pytest`/`ruff`/`mypy`/
 `bandit`/`pip-audit`, publishing to GitHub, `pipx` install, and the offline
-end-to-end scan. Everything below is genuinely still open, in priority order.
+end-to-end scan. Done in session 5 (written, not run): the lab server, the live
+tests, and CI. Everything below is genuinely still open, in priority order.
 
-1. ~~Open `out/report.html` and click every tab.~~ Done 2026-09-02 — see known
-   issue 3. The lightbox and chip filtering still need a report with screenshots
-   and attempts in it, which step 2 produces.
-2. **Build the local lab harness** — the highest-value item, because it is the
-   only thing that exercises the active half of the tool:
-   - a `http.server` on 127.0.0.1 sending `Server: HP HTTP Server` and serving a
-     login form that accepts `admin` with a blank password;
-   - a `.nessus` pointing at that host:port (copy `tests/fixtures/devices.nessus`);
-   - run `nwaa scan --authorized --default-creds` against it and confirm the full
-     chain: live probe → `hp-printer` at `source: nessus+http` → screenshot with
-     the URL banner → HP profile selected → `default_credentials_successful`.
-   - Then the negative cases: wrong password → `authentication_failed`; a page
-     with no password field → `not_tested`; an off-scope redirect → aborted.
-3. **Promote that harness into the test suite** as an integration test so the
-   Playwright paths stop being untested forever.
-4. **Add CI** (`.github/workflows/ci.yml`) running `pytest`, `ruff check .`,
-   `mypy`, `bandit -r src` on push. The repo is public now; a green badge is
-   also the honest signal for the README's alpha status.
+1. **Run session 5's work on Kali.** This is the whole job right now — five
+   tests and a lab server that have never executed.
+
+   ```bash
+   cd ~/Documents/nessus-web-auth-audit && git pull
+   source .venv/bin/activate && pip install -e ".[dev]"
+   pytest                     # must stay at 147 passed + 5 skipped
+   nwaa setup                 # if Chromium is not already there
+   pytest -m integration -rs  # the five live tests
+   ruff check . && mypy && bandit -r src
+   ```
+
+   Then paste the real output into "Tests / results" above, replacing the
+   session-4 numbers. Expect to fix things — no line of the lab server or the
+   live tests has ever been parsed by an interpreter, let alone run. Likely
+   suspects, in order: the form submit path (`_submit` clicks the first
+   `<button>`), whether `networkidle` is ever reached, and whether the
+   in-scope 1x1 image in the scope test loads before the assertion.
+2. **Push and watch CI.** The `integration` job's `playwright install
+   --with-deps chromium` on `ubuntu-latest` is the untested part. Fix forward;
+   do not disable the job.
+3. **Manual viewer pass on a lab report** — run `python tests/lab_server.py
+   --port 8080 --write-nessus /tmp/lab.nessus`, scan it with `--authorized
+   --default-creds`, then open `report.html` and exercise the three things
+   known issue 3 still lists as unverified: `<dialog>.showModal()` for the
+   screenshot lightbox, the verdict chips actually filtering, and lazy-loaded
+   data-URI images.
+4. `nwaa setup --check` as root **and** as `jose`, confirming the browsers path
+   and `--no-sandbox` reporting match reality on each (known issue 13).
 5. **Validate signatures against real devices** in a lab: at minimum an HP MFP,
    an iDRAC, and one camera. Record any banner that fails to match and tighten
    or add a signature with a regression test. Until this is done, treat the
-   42 profiles as documentation-derived guesses.
-6. `nwaa setup --check` as root **and** as `jose`, confirming the browsers path
-   and `--no-sandbox` reporting match reality on each.
-7. Perform the manual verification procedure in `docs/USAGE.md` against a lab
-   target before any engagement use.
-8. Consider tagging `v0.2.0` and writing release notes once 1–4 are done.
-6. `git init`, commit, add CI running the four checks above.
-7. Add an integration test serving a fake login page from `http.server` on
-   127.0.0.1 to cover the Playwright paths (success, failure, timeout, an
-   off-scope redirect that must be aborted, and a response carrying
-   `Server: HP HTTP Server` so the live fingerprint path is exercised).
-8. Validate the signature table against real devices in a lab: at minimum an HP
-   MFP, an iDRAC, and one camera. Record any banner that fails to match and
-   tighten or add a signature with a regression test.
-9. Perform the manual verification procedure in `docs/USAGE.md` against a lab
-   target before any engagement use.
+   42 profiles as documentation-derived guesses (known issue 10).
+6. Decide known issue 15 (host-level route guard) deliberately, one way or the
+   other, and write the outcome down.
+7. Tag `v0.2.0` with release notes once 1–3 are green. The README's status
+   table should stop saying "first run pending" at the same moment.

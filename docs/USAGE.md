@@ -227,25 +227,58 @@ Each entry in `credential_attempts` has a `verdict` of:
 | `connection_error` | Timeout, TLS failure, DNS, or browser error |
 | `not_tested` | No form-based login found, or URL out of scope |
 
-## Manual verification procedure (not covered by the automated tests)
+## The local lab target
 
-The test suite is fully offline. Before using this on an engagement, verify the
-browser path once against a lab target you control:
+`tests/lab_server.py` is a throwaway device that answers like an HP printer's
+embedded web server: `Server: HP HTTP Server`, an HP page title, and a login
+form that accepts `admin` with a blank password (the factory state the bundled
+HP profile's first entry describes) and rejects everything else. It is what the
+live tests drive, and you can run it by hand:
 
-1. Stand up any app with a login form on a host and port you control.
-2. Write a minimal `.nessus` containing that host/port with a plugin whose
-   output mentions the login URL (see `tests/fixtures/sample.nessus`).
-3. Run with `--authorized` and confirm the PNG shows the banner with the correct
-   URL, and that the same image appears in `report.html`.
-4. Run with a deliberately wrong credential and confirm `authentication_failed`.
-5. Run with the correct credential and confirm `default_credentials_successful`.
-6. Point a login page at an off-scope redirect and confirm the request is
-   aborted rather than followed.
-7. Serve a page with `Server: HP HTTP Server` and confirm the Devices tab shows
-   `hp-printer` with `source: http`, and that `--default-creds` selects the HP
-   profile and nothing else.
-8. Repeat step 7 as root and as a normal user on Kali, confirming Chromium
-   launches both times (`--no-sandbox` is logged in the root case).
+```bash
+python tests/lab_server.py --port 8080 --write-nessus /tmp/lab.nessus
+# in another shell:
+nwaa scan --nessus /tmp/lab.nessus --out /tmp/lab-out --authorized --default-creds
+```
+
+That gives you a `report.html` containing real screenshots and real credential
+attempts — the only way to exercise the screenshot lightbox and the verdict
+filter chips in the viewer.
+
+The server binds loopback and talks to nothing else. `--username`/`--password`
+change which credential it accepts.
+
+## Automated live tests
+
+`tests/test_integration_live.py` drives a real Chromium against that lab server
+and covers the paths no offline test can reach: screenshot capture, live banner
+fingerprinting, form submission and verdict classification, and the scope route
+guard blocking an off-scope subresource.
+
+```bash
+nwaa setup            # once: download Chromium
+pytest -m integration
+```
+
+They **skip themselves** when no Chromium is installed, so `pytest` stays green
+on a machine without a browser. Set `NWAA_REQUIRE_INTEGRATION=1` to turn that
+skip into a hard failure (CI does).
+
+## Manual verification procedure (not covered by any test)
+
+Before using this on an engagement:
+
+1. Run the live tests above, and open the `report.html` from a manual lab run.
+   Click every tab, open a screenshot in the lightbox, and use the verdict
+   filter chips.
+2. Repeat a lab run as root **and** as a normal user on Kali, confirming
+   Chromium launches both times (`--no-sandbox` is logged in the root case) and
+   that `nwaa setup --check` reports the same browsers path the run used.
+3. Point the tool at at least one **real** device of a class you care about — an
+   HP MFP, an iDRAC, a camera — and check the `evidence` strings in the report.
+   The signature table was written from vendor documentation, not from captured
+   traffic; a banner that fails to match, or matches the wrong vendor, is a bug
+   worth a regression test.
 
 ## Troubleshooting
 
