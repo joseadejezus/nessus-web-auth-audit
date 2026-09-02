@@ -200,9 +200,10 @@ Credentials come from exactly two places: your JSON file, or the bundled profile
 
 | | |
 | --- | --- |
-| ✅ | 154 tests passing on Kali — 149 offline, 5 driving a real browser; `ruff`, `mypy`, `bandit` clean |
+| ✅ | 159 tests on Kali — 149 offline, 10 driving a real browser; `ruff`, `mypy`, `bandit` clean |
 | ✅ | Parsing, classification, fingerprinting, and all three report formats |
-| ✅ | Browser-driving code — screenshots, live probing, credential submission, the scope guard — exercised by live tests (`pytest -m integration`) against a loopback lab device. First live run on Kali, 2026-09-02 |
+| ✅ | Browser-driving code — screenshots, live probing, credential submission, the scope guard — exercised by live tests (`pytest -m integration`) against a loopback lab device |
+| ✅ | The HTML viewer, driven in a browser: every tab, the verdict chips, the screenshot lightbox, embedded images |
 | ⚠️ | Fingerprint signatures were written from vendor documentation, not captured banners |
 
 Validate against a lab device you control before using it on an engagement. The procedure is in [docs/USAGE.md](docs/USAGE.md#manual-verification-procedure-not-covered-by-any-test).

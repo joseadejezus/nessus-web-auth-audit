@@ -219,11 +219,10 @@ Docs: `CLAUDE.md`, `README.md`, `ARCHITECTURE.md`, `SECURITY.md`, `USAGE.md`.
 
 ## Current work
 
-`tests/test_integration_viewer.py` is written but has never run — five tests
-that drive the HTML viewer in a real browser, replacing the manual click-through
-that known issue 3 used to require. Everything else is green on Kali (see
-"Tests / results"); CI's own state after the `ruff I001` fix has not been
-checked.
+None in progress. 159 tests — 149 offline, 10 driving a real browser — with the
+live half green on Kali. Outstanding: confirm CI is green after the `ruff I001`
+fix and the viewer module, then the items below that need hardware or a
+decision.
 
 ## Tests / results
 
@@ -253,8 +252,22 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
   → report.json + report.txt + report.html all written
 ```
 
+**Viewer tests, green on their first run: 2026-09-02.**
+
+```
+pytest -m integration -rs -v
+  10 passed, 149 deselected in 21.12s   # 5 live + 5 viewer, no fixes needed
+```
+
+The five viewer tests drove a real report in Chromium: seven tabs rendered with
+no page error, chips and controls hidden only where they belong, chips
+filtering and toggling, `showModal()` opening and closing the lightbox, and the
+lazy data-URI screenshot decoding. **Known issue 3 is closed** — the viewer has
+no manual verification step left.
+
 **Full gate, green: 2026-09-02, on Kali as `jose` in the venv (Python 3.14.6,
-Playwright 1.62.0), after the two fixes below.**
+Playwright 1.62.0), after the two fixes below.** Run before the viewer module
+existed, so the counts are five short of current:
 
 ```
 pytest        154 passed in 12.88s   # 149 offline + 5 live
@@ -335,12 +348,12 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
    beat the UA stylesheet's `[hidden]` rule, so `el.hidden = true` was a no-op
    and the verdict chips showed on every tab. Fixed with an explicit
    `[hidden] { display: none !important; }` and a regression test.
-   The three things that needed a report containing screenshots and attempts —
-   `<dialog>.showModal()` for the lightbox, the verdict chips actually
-   filtering, and lazy-loaded data-URI images decoding — are now covered by
-   `tests/test_integration_viewer.py`, which produces exactly that report from a
-   lab scan and drives it. **Written, not yet run.** Once it passes, the viewer
-   has no manual verification step left.
+   ~~The three things that needed a report containing screenshots and
+   attempts~~ — `<dialog>.showModal()` for the lightbox, the verdict chips
+   actually filtering, and lazy-loaded data-URI images decoding — are covered by
+   `tests/test_integration_viewer.py` and passed on their first run,
+   2026-09-02. **Closed.** The viewer has no manual verification step left, and
+   a JS exception in any renderer now fails the suite.
 4. Login-page discovery is limited to what the Nessus scan recorded; GET-only
    probing of common login paths was deliberately not built.
 5. Only form-based logins are driven; HTTP Basic/NTLM/client-cert returns
@@ -443,9 +456,10 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
 
 Done in session 4 (do not redo): environment setup, `pytest`/`ruff`/`mypy`/
 `bandit`/`pip-audit`, publishing to GitHub, `pipx` install, and the offline
-end-to-end scan. Done in session 5: the lab server, the live tests, and CI —
-written, pushed, and run on Kali with the full gate green (154 tests, ruff,
-mypy, bandit). Everything below is genuinely still open, in priority order.
+end-to-end scan. Done in session 5: the lab server, the live tests, the viewer
+tests, and CI — written, pushed, and run on Kali (159 tests; the full
+ruff/mypy/bandit gate was green at 154, before the viewer module). Everything
+below is genuinely still open, in priority order.
 
 1. **Confirm CI is green again.** It works: `playwright install --with-deps
    chromium` on `ubuntu-latest` succeeds and the `live browser tests` job has
@@ -453,18 +467,12 @@ mypy, bandit). Everything below is genuinely still open, in priority order.
    failed on `ruff I001` in `browser.py`'s import block (see session 5's last
    bullet); the fix is pushed but, as ever, was written on a machine that
    cannot run ruff.
-2. **Run `tests/test_integration_viewer.py`** — five tests that open a real lab
-   report in Chromium and drive the viewer (every tab with a page-error
-   listener attached, chips filtering, lightbox open/close, data-URI images
-   decoding). Written but never executed; expect selector or timing fixes.
-   `pytest -m integration -rs` runs it alongside the other live tests. If it
-   goes green, known issue 3 closes and the viewer needs no manual pass.
-4. `nwaa setup --check` as root **and** as `jose`, confirming the browsers path
+2. `nwaa setup --check` as root **and** as `jose`, confirming the browsers path
    and `--no-sandbox` reporting match reality on each (known issue 13).
-5. **Validate signatures against real devices** in a lab: at minimum an HP MFP,
+3. **Validate signatures against real devices** in a lab: at minimum an HP MFP,
    an iDRAC, and one camera. Record any banner that fails to match and tighten
    or add a signature with a regression test. Until this is done, treat the
    42 profiles as documentation-derived guesses (known issue 10).
-6. Decide known issue 15 (host-level route guard) deliberately, one way or the
+4. Decide known issue 15 (host-level route guard) deliberately, one way or the
    other, and write the outcome down.
-7. Tag `v0.2.0` with release notes once 1–2 are done.
+5. Tag `v0.2.0` with release notes once CI is green.
