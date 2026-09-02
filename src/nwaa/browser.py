@@ -31,7 +31,7 @@ import logging
 import os
 import platform
 import shutil
-import subprocess
+import subprocess  # nosec B404 - only used for the fixed playwright install argv below
 import sys
 from pathlib import Path
 
@@ -143,7 +143,9 @@ def install_browser(timeout_s: int = 900, with_deps: bool = False) -> tuple[bool
 
     logger.info("Installing Chromium for Playwright (this downloads ~150 MB)")
     try:
-        completed = subprocess.run(  # noqa: S603 - fixed argv, no shell, no user input
+        # argv is built above from constants and sys.executable; shell=False,
+        # and no value from a scan file or CLI flag ever reaches it.
+        completed = subprocess.run(  # noqa: S603  # nosec B603
             cmd, capture_output=True, text=True, timeout=timeout_s, check=False
         )
     except FileNotFoundError:

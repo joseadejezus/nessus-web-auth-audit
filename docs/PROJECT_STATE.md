@@ -99,30 +99,38 @@ None in progress.
 
 ## Tests / results
 
-**The test suite has still never been executed.** The development machine is
-Windows with no Python, pip, or git (only the Windows Store `python.exe` alias
-stub); `pipx` is not installed either. Verification to date is static review
-only: reading every module end to end, checking import ordering against the ruff
-isort rules, checking line lengths against `line-length = 110`, and hand-tracing
-the CLI flows, the signature regexes and the JS template. Treat all code as
-"written and reviewed, not run".
+**First execution: 2026-09-02, on Kali (Python 3.14.6, Playwright 1.62.0),
+inside a venv as an unprivileged user.**
 
-Expected once an interpreter exists (on the Kali box this is meant to run on):
+```
+pytest        147 passed in 1.04s
+ruff check .  All checks passed!
+mypy          2 errors — missing defusedxml stubs (fixed: types-defusedxml added to dev extras)
+bandit -r src 2 Low findings, both in browser.py (B404 import subprocess, B603
+              subprocess.run) — reviewed and annotated `# nosec` at the call
+              site with justification: fixed argv, shell=False, no external input
+pip-audit     1 vulnerability: pip 26.1.2 (PYSEC-2026-3721, fixed in 26.2) — the
+              venv's own pip, not a project dependency. nwaa itself skipped
+              (not on PyPI). No nwaa dependency is affected.
+```
+
+Everything the suite covers is offline by design. **What still has no execution
+coverage at all is every line that drives a browser**: `screenshot_login_pages`,
+`test_credentials_against_pages`, `probe_login_pages`, and the JS in
+`html_report.py`. Those need a live target — see "Exact next steps".
+
+Re-run the full gate with:
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest                  # ~110 offline tests, no network or browser required
-ruff check .
-mypy
-bandit -r src
-pip-audit
+pytest && ruff check . && mypy && bandit -r src && pip-audit
 ```
 
 pipx path to verify separately:
 
 ```bash
-pipx install .
+pipx install .        # or: pipx install git+https://github.com/joseadejezus/nessus-web-auth-audit.git
 nwaa --version
 nwaa setup --check
 nwaa setup
@@ -132,7 +140,8 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
 
 ## Known issues
 
-1. **Nothing has been run.** Expect small breakages on first execution.
+1. The offline suite passes (147 tests), but **the browser-driving code has
+   never run**. That is the single biggest remaining unknown.
 2. Playwright call sites (`screenshot_login_pages`, `test_credentials_against_pages`,
    `probe_login_pages`, `browser.py`) have no automated coverage — they need a
    real browser. `docs/USAGE.md` has a manual verification procedure.
@@ -209,14 +218,8 @@ Do these on the Kali box, not on Windows — that is the target platform now.
 1. `sudo apt install -y python3-venv pipx git`; clone; `python3 -m venv .venv &&
    source .venv/bin/activate`; `pip install -e ".[dev]"`;
    `playwright install chromium`.
-2. Run `pytest` and fix failures. Highest-suspicion areas, in order:
-   `defusedxml` exception names in `nessus_parser.py`; `Locator.count()` on a
-   `.first` locator in `credential_tester.py`; the `capsys` stderr capture in
-   `tests/test_redaction.py`; the `<title>` regex in
-   `tests/test_html_report.py::test_written_file_is_utf8_and_titled`; the
-   `importlib.resources.files()` data load in `default_creds.py`; and the exact
-   confidence/profile assertions in `tests/test_fingerprint.py`, which depend on
-   the signature scoring.
+2. ~~Run `pytest` and fix failures.~~ Done 2026-09-02: 147 passed, ruff clean;
+   mypy and bandit findings resolved (see Tests / results).
 3. Open a generated `report.html` in a browser and click through every tab —
    including the new **Devices** tab — the filter box, the verdict chips, and a
    screenshot lightbox.

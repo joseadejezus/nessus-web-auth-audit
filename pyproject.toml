@@ -34,6 +34,9 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.5",
     "mypy>=1.10",
+    # defusedxml ships no inline types; without these mypy reports the
+    # nessus_parser import as untyped.
+    "types-defusedxml>=0.7",
     "bandit>=1.7",
     "pip-audit>=2.7",
 ]
