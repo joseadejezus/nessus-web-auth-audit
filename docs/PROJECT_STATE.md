@@ -200,16 +200,19 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
    `probe_login_pages`, `browser.py`) have no automated coverage — they need a
    real browser. `docs/USAGE.md` has a manual verification procedure.
    `probe_open_page` *is* covered, via stub page/response objects.
-3. The JS in `html_report.py` partially verified in a browser (2026-09-02,
-   Kali/Firefox, dark mode): header, cards, tabs, Overview and the note all
-   render. **The `hidden` toggle on the chips row was broken and is now fixed**
-   — an author `display: flex` rule beat the UA stylesheet's `[hidden]` rule, so
-   the verdict chips showed on every tab; an explicit
-   `[hidden] { display: none !important; }` fixes it, with a regression test.
-   Still unverified: `<dialog>.showModal()` for the screenshot lightbox, the
-   verdict chips actually filtering, and lazy-loaded data-URI images — all need
-   a report that contains screenshots and credential attempts, i.e. an
-   `--authorized` run.
+3. The JS in `html_report.py` is **verified in a browser** for everything a
+   parse-only report can exercise (2026-09-02, Kali/Firefox, dark mode): header,
+   summary cards, all seven tabs, Overview, the Devices/Login pages/Plaintext/
+   Web services renderers, the note, and the controls row correctly hiding on
+   Overview and reappearing elsewhere.
+   One real bug found and fixed in the process: an author `display: flex` rule
+   beat the UA stylesheet's `[hidden]` rule, so `el.hidden = true` was a no-op
+   and the verdict chips showed on every tab. Fixed with an explicit
+   `[hidden] { display: none !important; }` and a regression test.
+   Still unverified, because they need a report containing screenshots and
+   attempts (i.e. an `--authorized` run): `<dialog>.showModal()` for the
+   screenshot lightbox, the verdict chips actually filtering, and lazy-loaded
+   data-URI images.
 4. Login-page discovery is limited to what the Nessus scan recorded; GET-only
    probing of common login paths was deliberately not built.
 5. Only form-based logins are driven; HTTP Basic/NTLM/client-cert returns
@@ -278,10 +281,9 @@ Done in session 4 (do not redo): environment setup, `pytest`/`ruff`/`mypy`/
 `bandit`/`pip-audit`, publishing to GitHub, `pipx` install, and the offline
 end-to-end scan. Everything below is genuinely still open, in priority order.
 
-1. **Open `out/report.html` in a browser** and click every tab — especially the
-   new **Devices** tab — plus the filter box, the verdict chips, and a
-   screenshot lightbox. This JS has never been parsed by a browser. Cheapest
-   remaining unknown to eliminate.
+1. ~~Open `out/report.html` and click every tab.~~ Done 2026-09-02 — see known
+   issue 3. The lightbox and chip filtering still need a report with screenshots
+   and attempts in it, which step 2 produces.
 2. **Build the local lab harness** — the highest-value item, because it is the
    only thing that exercises the active half of the tool:
    - a `http.server` on 127.0.0.1 sending `Server: HP HTTP Server` and serving a
