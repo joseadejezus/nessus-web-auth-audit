@@ -57,6 +57,11 @@ def parse_nessus_file(path: str | Path) -> NessusScan:
         raise NessusParseError(f"Could not parse {path} as XML: {exc}") from exc
 
     root = tree.getroot()
+    if root is None:
+        # parse() normally raises ParseError rather than handing back a
+        # rootless tree, but the API permits one — and an AttributeError
+        # traceback is the wrong answer for untrusted input. Exit code 2.
+        raise NessusParseError(f"{path} contains no XML root element")
     if root.tag != "NessusClientData_v2":
         raise NessusParseError(
             f"{path} does not look like a .nessus file "
