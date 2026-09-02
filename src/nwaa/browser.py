@@ -31,9 +31,11 @@ import logging
 import os
 import platform
 import shutil
-# Justification kept above the pragma, not after it: bandit reads everything
-# following "# nosec" as a list of test ids and warns about each prose word.
-# Only used for the fixed 'playwright install' argv in install_browser().
+# Only used for the fixed 'playwright install' argv in install_browser();
+# shell=False, and no value from a scan file or CLI flag ever reaches it.
+# The justification sits above the pragma rather than after it because bandit
+# parses whatever follows the pragma as a list of test ids, and warns once per
+# prose word. For the same reason, do not write that pragma out in a comment.
 import subprocess  # nosec B404
 import sys
 from pathlib import Path
