@@ -41,8 +41,10 @@ An HP printer gets the HP list. It never sees the Dell list. That means fewer re
 
 ## Example
 
+Offline run against the bundled sample scan — no host is contacted:
+
 ```console
-$ nwaa scan --nessus engagement.nessus --out ./out --authorized --default-creds
+$ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
 
 ========================================================================
 nwaa - Nessus web authentication surface report
@@ -50,33 +52,49 @@ nwaa - Nessus web authentication surface report
 
 SUMMARY
 ------------------------------------------------------------------------
-  Web services                  : 34
-  Plaintext HTTP web services   : 19
-  Login pages identified        : 12
-  Devices fingerprinted         : 9
-  Credential attempts           : 27
-      of which vendor defaults      : 27
-      default_credentials_successful    : 2
-      authentication_failed             : 23
-      inconclusive                      : 2
+  Web services                  : 3
+  Plaintext HTTP web services   : 2
+  TLS web services              : 1
+  Login pages identified        : 3
+  Devices fingerprinted         : 2
 
 DEVICES IDENTIFIED (heuristic fingerprint -> default-credential profile)
 ------------------------------------------------------------------------
   10.10.10.20:80           HP printer / MFP (Embedded Web Server)  [high]
-      profile      : hp-printer  (source: nessus+http)
-      evidence     : http: matched /\bHP\s+HTTP\s+Server\b/
-  10.10.10.21:443          Dell iDRAC  [high]
+      profile      : hp-printer  (source: nessus)
+      evidence     : nessus: matched /\bHP\s+HTTP\s+Server\b/
+      evidence     : nessus: matched /\bHP\s*(Color\s+)?(LaserJet|OfficeJet|...)\b/
+      evidence     : nessus: matched /Virtual\s+Machine\s+Embedded\s+Web\s+Server/
+  10.10.10.21:443          Dell Remote Access Controller (iDRAC)  [high]
       profile      : dell-idrac  (source: nessus)
+      evidence     : nessus: matched /\biDRAC\s?[0-9]?\b/
       evidence     : nessus: matched /Integrated\s+Dell\s+Remote\s+Access/
 
-CREDENTIAL ATTEMPTS (passwords are never recorded)
+LOGIN PAGES
 ------------------------------------------------------------------------
-  DEFAULT_CREDENTIALS_SUCCESSFUL
-      url      : http://10.10.10.20/hp/device/set_config_password.html
-      username : admin  (set: default:hp-printer (blank admin password))
-      source   : vendor_default
-      detail   : Password field gone, URL changed away from login page.
+  [PLAINTEXT] http://10.10.10.20/hp/device/set_config_password.html
+      detected via : nessus_plugin
+      device       : HP printer / MFP (Embedded Web Server) (high confidence)
+      evidence     : plugin[50345] Web Management Interface Administrator Login Page
+  [TLS] https://10.10.10.21/login.html
+      detected via : nessus_plugin
+      device       : Dell Remote Access Controller (iDRAC) (high confidence)
+  [PLAINTEXT] http://10.10.10.22/login
+      detected via : nessus_plugin
+      evidence     : plugin[42057] Web Server Allows Password Auto-Completion
 ```
+
+Every guess shows its work: the third login page is a plain nginx host, so it gets **no** device and **no** default credentials rather than a hopeful guess.
+
+Add `--authorized --default-creds` and the run also screenshots each page, submits the matching vendor defaults, and fills in a verdict per attempt:
+
+| Verdict | Meaning |
+| --- | --- |
+| `default_credentials_successful` | Password field gone, URL changed, no failure text. **Verify by hand.** |
+| `authentication_failed` | Failure text detected on the resulting page |
+| `inconclusive` | Ambiguous — common with SPAs and apps that return 200 on failure |
+| `connection_error` | Timeout, TLS failure, or browser error |
+| `not_tested` | No form-based login found, or out of scope |
 
 Plus `report.html` — one self-contained file, no server, no CDN, with tabs for devices, login pages, attempts, and screenshots with the URL burned into each image.
 

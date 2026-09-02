@@ -79,8 +79,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="nwaa",
         description=(
-            "Identify web login pages from a .nessus scan, screenshot them, and "
-            "optionally test explicitly-configured credentials against them. "
+            "Identify web login pages from a .nessus scan, fingerprint the device behind "
+            "each one, screenshot them, and optionally test credentials against them - "
+            "either your own, or that vendor's published factory defaults. "
             "Only use against systems you have written authorization to test."
         ),
     )
@@ -89,7 +90,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     scan = sub.add_parser(
         "scan",
-        help="Parse a .nessus file and report on the web auth surface (does everything in one go)",
+        help="Parse, fingerprint, screenshot, test, report - the whole job in one command",
     )
     scan.add_argument("--nessus", required=True, help="Path to the .nessus file")
     scan.add_argument("--out", default="./nwaa-output", help="Output directory for reports/screenshots")
