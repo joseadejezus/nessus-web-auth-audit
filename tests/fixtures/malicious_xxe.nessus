@@ -1,0 +1,13 @@
+<?xml version="1.0" ?>
+<!DOCTYPE NessusClientData_v2 [
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<NessusClientData_v2>
+  <Report name="Malicious">
+    <ReportHost name="10.10.10.5">
+      <HostProperties>
+        <tag name="host-ip">&xxe;</tag>
+      </HostProperties>
+    </ReportHost>
+  </Report>
+</NessusClientData_v2>

@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nwaa"
+version = "0.2.0"
+description = "Nessus-driven web authentication surface auditor: login page discovery, device fingerprinting, screenshots, and authorized default-credential testing"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = [
+    "nessus", "pentest", "security", "login-page", "screenshot", "playwright",
+    "default-credentials", "fingerprint", "kali",
+]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Security",
+]
+dependencies = [
+    "defusedxml>=0.7.1",
+    "playwright>=1.44",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "bandit>=1.7",
+    "pip-audit>=2.7",
+]
+
+[project.scripts]
+nwaa = "nwaa.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"nwaa.data" = ["*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = ["S101"]  # assert is fine in tests
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "E501"]
+# Holds the embedded HTML/CSS/JS viewer template; CSS rules are one line each.
+"src/nwaa/html_report.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+packages = ["nwaa"]
+mypy_path = "src"
+warn_unused_ignores = true
+disallow_untyped_defs = false
+
+[tool.bandit]
+exclude_dirs = ["tests"]

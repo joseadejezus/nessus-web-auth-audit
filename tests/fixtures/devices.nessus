@@ -1,0 +1,49 @@
+<?xml version="1.0" ?>
+<NessusClientData_v2>
+  <Policy>
+    <policyName>Device Sample Policy</policyName>
+  </Policy>
+  <Report name="Sample Device Scan">
+    <ReportHost name="10.10.10.20">
+      <HostProperties>
+        <tag name="host-ip">10.10.10.20</tag>
+        <tag name="operating-system">HP LaserJet 4250 Printer</tag>
+        <tag name="system-type">printer</tag>
+      </HostProperties>
+      <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="10107" pluginName="HTTP Server Type and Version" pluginFamily="Web Servers">
+        <description>A web server is running on the remote host.</description>
+        <plugin_output>The remote web server type is : HP HTTP Server; HP LaserJet 4250; Virtual Machine Embedded Web Server</plugin_output>
+      </ReportItem>
+      <ReportItem port="80" svc_name="www" protocol="tcp" severity="1" pluginID="50345" pluginName="Web Management Interface Administrator Login Page" pluginFamily="Web Servers">
+        <description>The remote host runs a web management interface that presents an administrator login page.</description>
+        <plugin_output>The administrator login page is : http://10.10.10.20/hp/device/set_config_password.html</plugin_output>
+      </ReportItem>
+    </ReportHost>
+    <ReportHost name="10.10.10.21">
+      <HostProperties>
+        <tag name="host-ip">10.10.10.21</tag>
+        <tag name="operating-system">Integrated Dell Remote Access Controller 7</tag>
+      </HostProperties>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="1" pluginID="50345" pluginName="Web Management Interface Administrator Login Page" pluginFamily="Web Servers">
+        <description>The remote host runs a web management interface that presents an administrator login page.</description>
+        <plugin_output>The administrator login page is : https://10.10.10.21/login.html
+The remote host appears to be an iDRAC7 service processor.</plugin_output>
+      </ReportItem>
+    </ReportHost>
+    <ReportHost name="10.10.10.22">
+      <HostProperties>
+        <tag name="host-ip">10.10.10.22</tag>
+        <tag name="operating-system">Linux Kernel 6.1</tag>
+      </HostProperties>
+      <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="10107" pluginName="HTTP Server Type and Version" pluginFamily="Web Servers">
+        <description>A web server is running on the remote host.</description>
+        <plugin_output>The remote web server type is : nginx/1.24.0</plugin_output>
+      </ReportItem>
+      <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="42057" pluginName="Web Server Allows Password Auto-Completion" pluginFamily="Web Servers">
+        <description>The remote web server hosts at least one HTML form field with a password field.</description>
+        <plugin_output>Page : /login
+Destination page and input name : http://10.10.10.22/login (password)</plugin_output>
+      </ReportItem>
+    </ReportHost>
+  </Report>
+</NessusClientData_v2>
