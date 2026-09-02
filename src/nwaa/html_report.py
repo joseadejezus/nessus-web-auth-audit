@@ -129,6 +129,9 @@ _TEMPLATE = """<!doctype html>
   }
 }
 * { box-sizing: border-box; }
+/* An author `display` rule beats the UA stylesheet's [hidden] rule, so
+   el.hidden = true silently does nothing on .chips/.controls without this. */
+[hidden] { display: none !important; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
   font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -163,6 +166,8 @@ input[type="search"] {
 .chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .item { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
 .item h3 { margin: 0 0 6px; font-size: 15px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; word-break: break-all; }
+/* Overview headlines are prose, not URLs — monospace reads as an error there. */
+.item h3.plain { font-family: inherit; font-weight: 650; word-break: normal; }
 .row { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: 13px; }
 .badge { display: inline-block; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 650; letter-spacing: 0.02em; border: 1px solid; }
 .b-bad { color: var(--bad); border-color: var(--bad); }
@@ -201,7 +206,7 @@ dialog#lightbox .cap { color: #fff; font-size: 12px; padding: 10px 2px; font-fam
 <main>
   <section class="cards" id="cards"></section>
   <nav class="tabs" id="tabs" role="tablist"></nav>
-  <div class="controls">
+  <div class="controls" id="controls">
     <input type="search" id="q" placeholder="Filter by host, URL, plugin, username…" aria-label="Filter">
     <div class="chips" id="chips"></div>
   </div>
@@ -408,7 +413,7 @@ dialog#lightbox .cap { color: #fff; font-size: 12px; padding: 10px 2px; font-fam
     if (worked.length) {
       out.push(el("div", { cls: "item" }, [
         el("div", { cls: "row" }, [badge("ACTION REQUIRED", "bad")]),
-        el("h3", { text: worked.length + " login(s) accepted configured credentials" }),
+        el("h3", { cls: "plain", text: worked.length + " login(s) accepted configured credentials" }),
         el("ul", { cls: "evidence" }, worked.map(function (a) {
           return el("li", {
             text: a.url + "  (username: " + (a.username || "(blank)") + ", set: " +
@@ -421,7 +426,7 @@ dialog#lightbox .cap { color: #fff; font-size: 12px; padding: 10px 2px; font-fam
     if (plain.length) {
       out.push(el("div", { cls: "item" }, [
         el("div", { cls: "row" }, [badge("PLAINTEXT HTTP", "bad")]),
-        el("h3", { text: plain.length + " web service(s) carry traffic unencrypted" }),
+        el("h3", { cls: "plain", text: plain.length + " web service(s) carry traffic unencrypted" }),
         el("ul", { cls: "evidence" }, plain.map(function (s) { return el("li", { text: s.base_url }); }))
       ]));
     }
@@ -464,7 +469,10 @@ dialog#lightbox .cap { color: #fff; font-size: 12px; padding: 10px 2px; font-fam
     view.textContent = "";
     var tab = TABS.filter(function (t) { return t[0] === current; })[0];
     tab[2]().forEach(function (node) { view.appendChild(node); });
+    // Verdict chips only mean something on the attempts tab, and the Overview
+    // tab renders a fixed summary that the text filter does not apply to.
     document.getElementById("chips").hidden = current !== "attempts";
+    document.getElementById("controls").hidden = current === "overview";
   }
 
   function openLightbox(src, caption) {

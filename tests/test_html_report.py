@@ -126,6 +126,19 @@ def test_html_report_never_contains_a_password(sample_scan, sample_login_pages):
     assert "REDACTED" in html
 
 
+def test_hidden_elements_actually_hide(sample_scan, sample_login_pages):
+    """Regression: the viewer toggles visibility with el.hidden, but an author
+    `display` rule beats the UA stylesheet's [hidden] rule — so without an
+    explicit [hidden] rule the verdict chips leaked onto every tab."""
+    html = build_html_report(_report(sample_scan, sample_login_pages))
+    assert "[hidden] { display: none !important; }" in html
+
+    toggled = re.findall(r'getElementById\("([\w-]+)"\)\.hidden', html)
+    assert toggled, "expected the viewer to toggle visibility via .hidden"
+    for element_id in toggled:
+        assert f'id="{element_id}"' in html, f"toggles #{element_id}, which does not exist"
+
+
 def test_device_fingerprints_reach_the_viewer(devices_scan):
     login_pages = identify_login_pages(devices_scan)
     result = ScanResult(
