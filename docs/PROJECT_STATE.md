@@ -79,6 +79,12 @@ results".
   sections; the manual procedure shrank to the three things a test genuinely
   cannot do (viewer lightbox/chips by hand, root vs. non-root on Kali, and real
   devices).
+- **Vendor defaults are no longer registered for redaction** — the one `src/`
+  change the first live run produced, and the reason the live test can now
+  assert the full sentence `"No password field found on page"`. Rationale and
+  the rule it replaces are under "Security decisions"; `CLAUDE.md` and
+  `docs/SECURITY.md` were rewritten to match rather than left contradicting the
+  code.
 
 ### Session 4 — first execution, publish, README
 
@@ -345,17 +351,8 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
     the guard to host+port would also block a device that legitimately redirects
     its login to another port on itself, which is common on BMCs. Decide
     deliberately; if it changes, the live test needs a case for it.
-16. **Common vendor-default passwords over-redact the reports.** Every bundled
-    default password is registered with `nwaa.redaction` on load, including
-    generic ones like `password`, `admin` and `1234`. `scrub_secrets` then
-    replaces those tokens wherever they appear in any scrubbed string — so
-    `"No password field found on page"` reaches the report as
-    `"No ***REDACTED*** field found on page"`, and a real device whose page
-    title contains the lowercase word would be mangled the same way
-    (`page_title` and `server` are scrubbed; URLs are not). Found by the first
-    live test run, 2026-09-02. The safety net is working exactly as designed;
-    the problem is that public documentation is being treated as a secret.
-    Not changed yet — see "Exact next steps".
+16. ~~Common vendor-default passwords over-redact the reports.~~ Fixed
+    2026-09-02, same day it was found — see "Security decisions".
 
 ## Security decisions
 
@@ -377,10 +374,23 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
 - Vendor defaults are applied only to the profile that was detected — there is
   no "try every profile" mode, and detection evidence is recorded per match.
 - Chromium's sandbox is dropped only when running as root on Linux, and says so.
-- Passwords are wrapped in `SecretStr`, registered for redaction on load,
-  scrubbed at both logger and handler level, and reports are serialized
-  field-by-field. `build_json_report` is the single serialization point, so the
-  text and HTML reports inherit the same redaction.
+- Passwords are wrapped in `SecretStr`, scrubbed at both logger and handler
+  level, and reports are serialized field-by-field. `build_json_report` is the
+  single serialization point, so the text and HTML reports inherit the same
+  redaction.
+- **Only operator-supplied passwords are registered with `nwaa.redaction`**
+  (decided 2026-09-02, after the first live run). Bundled vendor defaults are
+  not: they are factory credentials published in vendor manuals that
+  `nwaa profiles --show-passwords` prints on request, and registering them meant
+  the registry could not tell the string `password` in the HP profile from a
+  real secret — it replaced that word in every scrubbed field it appeared in,
+  producing `"No ***REDACTED*** field found on page"` in a live report and
+  threatening the same for a target's own page title and `Server` banner.
+  Nothing interpolates a password into a report string (`build_json_report`
+  never touches `Credential.password`), so the registry was protecting nothing
+  here that is not already public. `SecretStr` still covers every password. If a
+  password ever does reach a report string, that call site is the bug — do not
+  re-register the defaults to paper over it.
 - The HTML report treats its own data as attacker-influenced: `\u`-escaped JSON
   in the data island, DOM built with `createElement`/`textContent`, no external
   resources (test-enforced).
@@ -402,19 +412,10 @@ genuinely still open, in priority order.
    ```bash
    cd ~/Documents/nessus-web-auth-audit && git pull
    source .venv/bin/activate
-   pytest -rs                                # expect 153 passed
+   pytest -rs                                # expect 154 passed
    ruff check . && mypy && bandit -r src && pip-audit
    ```
-2. **Decide known issue 16 (over-redaction).** The options, in order of
-   preference: (a) stop registering bundled vendor defaults as secrets — they
-   are public documentation the tool itself prints via `nwaa profiles
-   --show-passwords`, and nothing interpolates a password into a report string,
-   so the net protects almost nothing while corrupting real text; (b) keep the
-   net and reword the constants it mangles, which does not help a device's own
-   page title; (c) accept it and document it in the report. Whichever wins,
-   `CLAUDE.md`'s "no secrets in logs or reports" rule and `docs/SECURITY.md`
-   need updating to say what was decided and why.
-3. **Watch the first CI run.** The `integration` job's `playwright install
+2. **Watch the first CI run.** The `integration` job's `playwright install
    --with-deps chromium` on `ubuntu-latest` is the untested part. Fix forward;
    do not disable the job.
 3. **Manual viewer pass on a lab report** — run `python tests/lab_server.py

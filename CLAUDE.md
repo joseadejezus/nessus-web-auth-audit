@@ -53,9 +53,18 @@ Kali specifically. Anything platform-conditional belongs in `browser.py`.
 - **No out-of-scope traffic.** Every navigation is checked against the
   `ScopeRegistry` built from the `.nessus` file, and a Playwright route handler
   aborts requests to hosts outside it. Do not add a "skip scope check" flag.
-- **No secrets in logs or reports.** Passwords are wrapped in `SecretStr` and
-  registered with `nwaa.redaction`. Never log a raw password, never serialize a
-  `Credential` with `dataclasses.asdict`.
+- **No secrets in logs or reports.** Every password is wrapped in `SecretStr`,
+  so no accidental `repr`/`str`/f-string can print one. Never log a raw
+  password, never serialize a `Credential` with `dataclasses.asdict`.
+  **Only operator-supplied passwords are additionally registered with
+  `nwaa.redaction`** (in `credential_tester.load_credentials`). The bundled
+  vendor defaults deliberately are not: they are factory credentials published
+  in vendor manuals that `nwaa profiles --show-passwords` prints on request, and
+  registering them meant the registry could not tell the string `password` in
+  the HP profile from a real secret — it scrubbed that word out of every report
+  field it appeared in, a target's own page title included. If you ever
+  interpolate a password into a report or log string, that is the bug; fix that
+  rather than re-registering the defaults.
 - **Untrusted XML.** `.nessus` files are parsed with `defusedxml` only. Never
   import `xml.etree.ElementTree` in this project.
 - **No `innerHTML` in the HTML report.** Everything the viewer renders came from

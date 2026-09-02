@@ -10,8 +10,11 @@ Hard rules enforced here, not just documented:
     makes password spraying / brute force structurally impossible, not
     just discouraged. It applies to the *combined* list, so adding vendor
     defaults cannot raise the number of attempts a page receives.
-  * Every attempted password is registered with nwaa.redaction before
-    use, so it cannot appear in logs or reports even by accident.
+  * Every operator-supplied password is registered with nwaa.redaction
+    as it is loaded, so it cannot appear in logs or reports even by
+    accident. Bundled vendor defaults deliberately are not registered —
+    they are published factory credentials, and treating words like
+    "password" as secrets corrupted report text (see default_creds).
   * Every navigation is re-validated against the ScopeRegistry
     immediately before use, and a Playwright route handler aborts any
     request to an out-of-scope host (covers redirects/subresources).

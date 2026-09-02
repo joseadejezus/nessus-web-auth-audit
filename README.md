@@ -186,7 +186,7 @@ These are enforced in code and asserted by tests, not just promised here:
 | **No brute force** | Hard ceiling of 20 attempts per page that no flag can raise; default 5. Applies to your list and the vendor defaults *combined*. |
 | **No wordlists** | Profiles are capped at 12 entries and validated at load. No credential generation, permutation, or retry loops. |
 | **No off-scope traffic** | Scope is derived from your `.nessus` file and cannot be extended by a flag. Enforced twice — URL check before navigation, plus a browser route guard that kills redirects and subresources to unscanned hosts. |
-| **No secrets in output** | Passwords are wrapped in `SecretStr`, registered for redaction on load, scrubbed at logger *and* handler level, and reports are serialized field by field. |
+| **No secrets in output** | Passwords are wrapped in `SecretStr` and reports are serialized field by field. Your own credentials are additionally registered for redaction on load and scrubbed at logger *and* handler level. (Published vendor defaults are not — `nwaa profiles --show-passwords` prints those on request.) |
 | **No accidental scanning** | Screenshots, `--credentials` and `--default-creds` all require `--authorized`. Parsing, fingerprinting and reporting are network-free. |
 | **Untrusted input** | `.nessus` files are parsed with `defusedxml` only; stdlib `xml.etree` is banned repo-wide by a test. |
 
@@ -202,7 +202,7 @@ Credentials come from exactly two places: your JSON file, or the bundled profile
 | --- | --- |
 | ✅ | 147 offline tests passing; `ruff`, `mypy`, `bandit` clean |
 | ✅ | Parsing, classification, fingerprinting, and all three report formats |
-| 🧪 | Browser-driving code — screenshots, live probing, credential submission, the scope guard — now has live tests (`pytest -m integration`) that drive a real Chromium against a loopback lab device. **Written, first run pending** — see [PROJECT_STATE.md](docs/PROJECT_STATE.md) |
+| ✅ | Browser-driving code — screenshots, live probing, credential submission, the scope guard — exercised by live tests (`pytest -m integration`) that drive a real Chromium against a loopback lab device. First live run on Kali, 2026-09-02 |
 | ⚠️ | Fingerprint signatures were written from vendor documentation, not captured banners |
 
 Validate against a lab device you control before using it on an engagement. The procedure is in [docs/USAGE.md](docs/USAGE.md#manual-verification-procedure-not-covered-by-any-test).

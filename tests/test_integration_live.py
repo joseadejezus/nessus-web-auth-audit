@@ -163,11 +163,12 @@ def test_page_without_a_password_field_is_not_tested(lab_target, tmp_path):
 
     attempt = report["credential_attempts"][0]
     assert attempt["verdict"] == "not_tested"
-    # Not "No password field ...": "password" is itself one of the HP profile's
-    # default passwords, so the redaction registry scrubs that word out of the
-    # detail string. Assert the half that cannot collide with a secret.
-    # See known issue 16 in docs/PROJECT_STATE.md.
-    assert "not a form-based login this tool can drive" in attempt["detail"]
+    # The full sentence, deliberately: the first live run reported this as
+    # "No ***REDACTED*** field found on page", because "password" is one of the
+    # HP profile's own default passwords and every bundled default used to be
+    # registered for redaction. Vendor defaults are no longer registered, and
+    # this asserts the report reads correctly end to end.
+    assert "No password field found on page" in attempt["detail"]
     assert lab_target.requests_for(lab.LOGIN_PATH, "POST") == []
 
 

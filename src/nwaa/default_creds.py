@@ -14,8 +14,22 @@ The rules that keep it that way:
     ``credential_tester.select_credentials_for_attempt``, so
     HARD_MAX_ATTEMPTS_PER_PAGE applies exactly as it does to
     operator-supplied credentials.
-  * Every password is registered with ``nwaa.redaction`` on load, so a
-    default password cannot appear in a log line or report either.
+
+These passwords are deliberately **not** registered with
+``nwaa.redaction``, which is the one place they are treated differently
+from an operator's. They are factory defaults published in vendor
+manuals, and ``nwaa profiles --show-passwords`` prints them on request —
+they are documentation, not engagement secrets. Registering them meant
+the redaction registry could not tell the string ``password`` in an HP
+profile from a real password, so it scrubbed that word out of every
+report field it appeared in: a live run reported "No ***REDACTED***
+field found on page", and a device whose own page title contained the
+word would have been mangled the same way. Nothing interpolates a
+password into a report string in the first place (``build_json_report``
+serializes field by field and never touches ``Credential.password``), so
+the net was protecting almost nothing here while corrupting real text.
+Operator-supplied passwords from ``--credentials`` are still registered,
+in ``credential_tester.load_credentials`` — those are the secrets.
 
 Offline and dependency-free: this module reads one packaged JSON file
 and touches nothing else.
@@ -30,7 +44,6 @@ from importlib import resources
 from pathlib import Path
 
 from nwaa.models import Credential, DeviceFingerprint, SecretStr
-from nwaa.redaction import register_secret
 
 logger = logging.getLogger("nwaa.default_creds")
 
@@ -139,10 +152,14 @@ def get_profile(profile_id: str) -> CredentialProfile | None:
 
 
 def credentials_for_profile(profile_id: str) -> list[Credential]:
-    """Credentials for one profile, with every password registered for redaction.
+    """Credentials for one profile.
 
     Returns an empty list for an unknown profile, and for profiles that
     legitimately have no factory default (iLO, ESXi, Jenkins).
+
+    These passwords are not registered for redaction — see the module
+    docstring for why. They are still wrapped in ``SecretStr``, so no
+    accidental ``repr``/``str``/f-string can print one.
     """
     profile = get_profile(profile_id)
     if profile is None:
@@ -151,7 +168,6 @@ def credentials_for_profile(profile_id: str) -> list[Credential]:
 
     credentials: list[Credential] = []
     for username, password, note in profile.entries:
-        register_secret(password)
         label = f"default:{profile_id}" + (f" ({note})" if note else "")
         credentials.append(
             Credential(

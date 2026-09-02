@@ -17,7 +17,7 @@ define the boundary of what may be touched.
 | --- | --- | --- |
 | Malicious `.nessus` file (XXE, external DTD, entity expansion) | `defusedxml` only; `DefusedXmlException` wrapped into a clean parse error; stdlib `xml.etree` is banned in this repo | `nessus_parser.py` |
 | Path traversal via URLs in scan data used as filenames | Allowlist sanitizer + dot-run collapsing + SHA-256 suffix | `screenshot.safe_filename` |
-| Credentials leaking into logs, reports, tracebacks | `SecretStr` (no `__str__`/`__repr__` leak), global secret registry, `RedactionFilter` on logger and handler, `scrub_secrets` on every free-text report field, field-by-field serialization instead of `asdict` | `models.py`, `redaction.py`, `report.py` |
+| Credentials leaking into logs, reports, tracebacks | `SecretStr` (no `__str__`/`__repr__` leak), secret registry for operator-supplied passwords (published vendor defaults are excluded on purpose — see Data protection), `RedactionFilter` on logger and handler, `scrub_secrets` on every free-text report field, field-by-field serialization instead of `asdict` | `models.py`, `redaction.py`, `report.py` |
 | Engagement credentials committed to the repo | `.gitignore` excludes `*credentials*.json`; only `credentials.example.json` with placeholders is tracked; no engagement credential values exist anywhere in source | repo root |
 | Bundled vendor defaults turning into a password list | One reviewable JSON data file, schema-validated at load, capped at 12 entries per profile; no `.py` file may contain credential literals (asserted by `tests/test_packaging.py`); a profile is applied only to a device that fingerprinted as it | `default_creds.py`, `data/default_credentials.json` |
 | Testing drifting into brute force / spraying | `HARD_MAX_ATTEMPTS_PER_PAGE = 20` ceiling a caller cannot raise; default 5; applied to the operator list **and** vendor defaults combined, per page; no wordlist loading, no credential generation, no retry loop | `credential_tester.py` |
@@ -46,11 +46,17 @@ Mapped to CodeGuard's rule domains:
   credentials only from the operator's file or the fingerprint-matched vendor
   profile, and conservative success classification so a lockout-prone target is
   not hammered and a weak signal is not reported as a compromise.
-- **Data protection** — passwords live in `SecretStr`, are registered for
-  redaction the moment they are loaded, and are excluded from logs, reports,
-  screenshots (never typed into a captured page before capture), and exception
-  text. Screenshots and reports are engagement data: treat the output directory
-  as sensitive and gitignored.
+- **Data protection** — passwords live in `SecretStr` and are excluded from
+  logs, reports, screenshots (never typed into a captured page before capture),
+  and exception text. Operator-supplied passwords are additionally registered
+  with the redaction registry the moment they are loaded, so any string
+  containing one is scrubbed before it reaches a log handler or a report field.
+  **Bundled vendor defaults are not registered**: they are factory credentials
+  published in vendor manuals, which `nwaa profiles --show-passwords` prints on
+  request, and treating a word like `password` as a secret corrupted report text
+  — including a target's own page title — while protecting nothing that is not
+  already public. Screenshots and reports are engagement data: treat the output
+  directory as sensitive and gitignored.
 - **Cryptography / transport** — plaintext HTTP services are identified and
   reported as findings, since credentials submitted to them cross the network in
   the clear. `ignore_https_errors=True` is set deliberately for capture (audit

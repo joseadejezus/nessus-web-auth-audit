@@ -46,10 +46,25 @@ def test_hp_printer_profile_yields_vendor_default_credentials():
     assert any(c.username == "admin" for c in creds)
 
 
-def test_default_passwords_are_registered_for_redaction():
-    creds = credentials_for_profile("dell-idrac")
-    secret = next(c.password.reveal() for c in creds if c.password.reveal())
-    assert secret not in scrub_secrets(f"tried {secret} against the target")
+def test_default_passwords_are_not_registered_for_redaction():
+    """Published factory defaults are documentation, not engagement secrets.
+
+    Registering them meant the registry could not tell the string
+    "password" in the HP profile from a real password, and scrubbed that
+    word out of every report field it appeared in — including a target's
+    own page title. Operator-supplied passwords are still registered;
+    see test_credential_tester.py.
+    """
+    creds = credentials_for_profile("hp-printer")
+    common = next(c.password.reveal() for c in creds if c.password.reveal() == "password")
+    assert scrub_secrets(f"No {common} field found on page") == "No password field found on page"
+
+
+def test_default_passwords_are_still_wrapped_in_secretstr():
+    """Not redacted is not the same as printable: SecretStr still applies."""
+    cred = next(c for c in credentials_for_profile("dell-idrac") if c.password.reveal())
+    assert cred.password.reveal() not in str(cred.password)
+    assert cred.password.reveal() not in f"{cred.password}"
 
 
 def test_default_password_never_appears_in_repr():
