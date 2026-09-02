@@ -85,11 +85,15 @@ results".
   the rule it replaces are under "Security decisions"; `CLAUDE.md` and
   `docs/SECURITY.md` were rewritten to match rather than left contradicting the
   code.
-- **`# nosec` prose moved above the pragma** in `browser.py`. Bandit reads
-  everything after `# nosec` as a list of test ids, so the B404 justification
-  produced nine `Test in comment: <word> is not a test name or id` warnings on
-  every run. The annotation is now `# nosec B404` with the reason on the lines
-  above it. Same suppression, readable output.
+- **The B404 justification moved into `browser.py`'s module docstring.** Bandit
+  reads everything after a `# nosec` pragma as a list of test ids, so the prose
+  that used to follow it produced nine `Test in comment: <word> is not a test
+  name or id` warnings on every run. Moving that prose to a comment block above
+  the import then failed `ruff I001` — isort will not accept a comment wedged
+  into an import block without a blank line before it, which would split the
+  stdlib imports. The docstring is the one place neither tool has an opinion.
+  Two red CI runs (`33681385571`, `33681826869`) found this; the local gate had
+  run *before* the change, which is exactly the gap CI exists to close.
 
 ### Session 4 — first execution, publish, README
 
@@ -430,9 +434,12 @@ end-to-end scan. Done in session 5: the lab server, the live tests, and CI —
 written, pushed, and run on Kali with the full gate green (154 tests, ruff,
 mypy, bandit). Everything below is genuinely still open, in priority order.
 
-1. **Watch the first CI run.** The `integration` job's `playwright install
-   --with-deps chromium` on `ubuntu-latest` is the untested part. Fix forward;
-   do not disable the job.
+1. **Confirm CI is green again.** It works: `playwright install --with-deps
+   chromium` on `ubuntu-latest` succeeds and the `live browser tests` job has
+   passed on every run so far, including the two that failed overall. Those two
+   failed on `ruff I001` in `browser.py`'s import block (see session 5's last
+   bullet); the fix is pushed but, as ever, was written on a machine that
+   cannot run ruff.
 2. **Manual viewer pass on a lab report** — run `python tests/lab_server.py
    --port 8080 --write-nessus /tmp/lab.nessus`, scan it with `--authorized
    --default-creds`, then open `report.html` and exercise the three things

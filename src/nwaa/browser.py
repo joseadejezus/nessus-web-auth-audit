@@ -24,6 +24,18 @@ is meant to run on:
     Downloading under ``sudo`` puts them in ``/root`` where the normal
     user's nwaa cannot see them; ``platform_report`` prints the path in
     use so that mismatch is visible.
+
+**Why the subprocess justification lives here.** Two bandit pragmas exist
+in this module: B404 on the ``subprocess`` import, and B603 (plus ruff's
+S603) on the single ``subprocess.run`` call. Both are safe on the same
+grounds — a fixed argv built from constants and ``sys.executable``,
+``shell=False``, and no value from a scan file or CLI flag ever reaching
+it. That reasoning sits in this docstring rather than beside the import
+because both linters have opinions about the alternatives: bandit reads
+whatever follows a pragma as a list of test ids and emits a warning per
+prose word, while ruff's isort rejects a comment block wedged into the
+import block. The call site inside ``install_browser`` carries the same
+note, where a comment is unambiguously fine.
 """
 from __future__ import annotations
 
@@ -31,11 +43,6 @@ import logging
 import os
 import platform
 import shutil
-# Only used for the fixed 'playwright install' argv in install_browser();
-# shell=False, and no value from a scan file or CLI flag ever reaches it.
-# The justification sits above the pragma rather than after it because bandit
-# parses whatever follows the pragma as a list of test ids, and warns once per
-# prose word. For the same reason, do not write that pragma out in a comment.
 import subprocess  # nosec B404
 import sys
 from pathlib import Path
