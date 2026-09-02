@@ -2,7 +2,50 @@
 
 _Last updated: 2026-09-02_
 
+## Where to pick up
+
+The offline half of the tool is **built, executed, and green**. The active half
+(anything that drives a browser) is **written but has never run**. Closing that
+is the next job — see "Exact next steps".
+
+## How this project is developed (two machines)
+
+| | |
+| --- | --- |
+| **Windows** `C:\Users\jdejesus\Documents\Scripts\nessus-web-auth-audit` | Where edits are made and committed. Has git (2.55) but **no Python** — nothing can be run here. |
+| **Kali** `~/Documents/nessus-web-auth-audit` (user `jose`) | Where everything is installed, run, and tested. venv at `.venv`, editable install. |
+| **GitHub** `github.com/joseadejezus/nessus-web-auth-audit` | Public. `main`. The sync point. |
+
+Loop: edit + commit + push on Windows → `git pull && pytest` on Kali. Both
+copies are real git clones; don't edit the same file on both sides between
+pulls. On Kali, work as `jose` and inside the venv — as root, pipx and
+Playwright use `/root` and you get a second, invisible install.
+
 ## Completed work
+
+### Session 4 — first execution, publish, README
+
+- **First run ever.** Installed on Kali (Python 3.14.6, Playwright 1.62.0).
+  `pytest` 147 passed; `ruff` clean. Fixed what the other two found:
+  `types-defusedxml` added to dev extras (mypy could not see into defusedxml
+  at all before, which was hiding real errors), bandit's two `browser.py`
+  findings annotated `# nosec` at the call site with justification rather than
+  skipped repo-wide.
+- **Real bug found by mypy**, once the stubs were in: `tree.getroot()` is
+  `Element | None` and `parse_nessus_file` used it three times assuming an
+  `Element`. A rootless tree would have raised `AttributeError` out of the
+  parser instead of `NessusParseError` — a traceback rather than a clean exit
+  code 2 on untrusted input. Guarded.
+- **Published to GitHub** (public, MIT). `pipx install git+https://...` works.
+- **First end-to-end offline run verified** against `tests/fixtures/devices.nessus`:
+  3 services / 2 plaintext / 3 login pages / 2 devices fingerprinted, exactly
+  matching the test assertions. HP printer and iDRAC both `high` confidence with
+  three evidence patterns each; the plain nginx host correctly fingerprinted as
+  **nothing** (the negative case that keeps this a targeted check).
+- **README rewritten** for people installing the tool: banner, badges, real
+  captured output, device-coverage table, safety-rails table, honest alpha
+  status. CLI help text refreshed — it still described the pre-fingerprinting
+  tool.
 
 ### Session 3 — Kali as the target platform, device fingerprinting, vendor defaults
 
@@ -103,15 +146,26 @@ None in progress.
 inside a venv as an unprivileged user.**
 
 ```
-pytest        147 passed in 1.04s
+pytest        147 passed in 0.68s
 ruff check .  All checks passed!
-mypy          2 errors — missing defusedxml stubs (fixed: types-defusedxml added to dev extras)
-bandit -r src 2 Low findings, both in browser.py (B404 import subprocess, B603
-              subprocess.run) — reviewed and annotated `# nosec` at the call
-              site with justification: fixed argv, shell=False, no external input
+mypy          clean (was: 2 stub errors, then 3 real union-attr errors the stubs
+              exposed in nessus_parser — all fixed)
+bandit -r src clean (2 Low findings in browser.py reviewed and annotated
+              `# nosec` at the call site: fixed argv, shell=False, no external input)
 pip-audit     1 vulnerability: pip 26.1.2 (PYSEC-2026-3721, fixed in 26.2) — the
               venv's own pip, not a project dependency. nwaa itself skipped
               (not on PyPI). No nwaa dependency is affected.
+```
+
+End-to-end offline run, verified on Kali:
+
+```
+nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
+  → 3 services, 3 web, 2 plaintext, 1 TLS, 3 login pages, 2 devices
+  → 10.10.10.20:80  hp-printer  [high]  3 evidence patterns
+  → 10.10.10.21:443 dell-idrac  [high]  3 evidence patterns
+  → 10.10.10.22:80  no fingerprint (plain nginx) — the negative case works
+  → report.json + report.txt + report.html all written
 ```
 
 Everything the suite covers is offline by design. **What still has no execution
@@ -213,21 +267,38 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
 
 ## Exact next steps
 
-Do these on the Kali box, not on Windows — that is the target platform now.
+Done in session 4 (do not redo): environment setup, `pytest`/`ruff`/`mypy`/
+`bandit`/`pip-audit`, publishing to GitHub, `pipx` install, and the offline
+end-to-end scan. Everything below is genuinely still open, in priority order.
 
-1. `sudo apt install -y python3-venv pipx git`; clone; `python3 -m venv .venv &&
-   source .venv/bin/activate`; `pip install -e ".[dev]"`;
-   `playwright install chromium`.
-2. ~~Run `pytest` and fix failures.~~ Done 2026-09-02: 147 passed, ruff clean;
-   mypy and bandit findings resolved (see Tests / results).
-3. Open a generated `report.html` in a browser and click through every tab —
-   including the new **Devices** tab — the filter box, the verdict chips, and a
-   screenshot lightbox.
-4. Run `ruff check .`, `mypy`, `bandit -r src`, `pip-audit`; fix findings.
-5. `pipx install .` and re-run the flows end to end from the installed entry
-   point: `nwaa setup --check`, `nwaa setup`, `nwaa profiles`, then a scan.
-   Repeat `nwaa setup --check` as root and as a normal user and confirm the
-   browsers path/`--no-sandbox` reporting matches reality.
+1. **Open `out/report.html` in a browser** and click every tab — especially the
+   new **Devices** tab — plus the filter box, the verdict chips, and a
+   screenshot lightbox. This JS has never been parsed by a browser. Cheapest
+   remaining unknown to eliminate.
+2. **Build the local lab harness** — the highest-value item, because it is the
+   only thing that exercises the active half of the tool:
+   - a `http.server` on 127.0.0.1 sending `Server: HP HTTP Server` and serving a
+     login form that accepts `admin` with a blank password;
+   - a `.nessus` pointing at that host:port (copy `tests/fixtures/devices.nessus`);
+   - run `nwaa scan --authorized --default-creds` against it and confirm the full
+     chain: live probe → `hp-printer` at `source: nessus+http` → screenshot with
+     the URL banner → HP profile selected → `default_credentials_successful`.
+   - Then the negative cases: wrong password → `authentication_failed`; a page
+     with no password field → `not_tested`; an off-scope redirect → aborted.
+3. **Promote that harness into the test suite** as an integration test so the
+   Playwright paths stop being untested forever.
+4. **Add CI** (`.github/workflows/ci.yml`) running `pytest`, `ruff check .`,
+   `mypy`, `bandit -r src` on push. The repo is public now; a green badge is
+   also the honest signal for the README's alpha status.
+5. **Validate signatures against real devices** in a lab: at minimum an HP MFP,
+   an iDRAC, and one camera. Record any banner that fails to match and tighten
+   or add a signature with a regression test. Until this is done, treat the
+   42 profiles as documentation-derived guesses.
+6. `nwaa setup --check` as root **and** as `jose`, confirming the browsers path
+   and `--no-sandbox` reporting match reality on each.
+7. Perform the manual verification procedure in `docs/USAGE.md` against a lab
+   target before any engagement use.
+8. Consider tagging `v0.2.0` and writing release notes once 1–4 are done.
 6. `git init`, commit, add CI running the four checks above.
 7. Add an integration test serving a fake login page from `http.server` on
    127.0.0.1 to cover the Playwright paths (success, failure, timeout, an
