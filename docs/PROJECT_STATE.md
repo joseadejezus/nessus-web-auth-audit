@@ -10,7 +10,7 @@ Two changes, both requested for real engagement use on Kali:
 
 **1. Device fingerprinting → matching vendor default credentials.**
 
-- `fingerprint.py` — signature table (46 profiles: printers/MFPs, BMCs, network
+- `fingerprint.py` — signature table (42 profiles: printers/MFPs, BMCs, network
   gear, cameras, NAS, app servers) plus a scoring matcher. Two sources: the
   `.nessus` plugin text and host tags (offline, weight 1), and live
   `Server` / `WWW-Authenticate` / title / body banners (weight 3).
