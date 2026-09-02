@@ -4,14 +4,13 @@ _Last updated: 2026-09-02_
 
 ## Where to pick up
 
-The offline half of the tool is **built, executed, and green**. The active half
-(anything that drives a browser) now has a lab target and live tests written
-against it, plus CI to run them — **but none of that has been executed yet**.
-It was written on the Windows box, which has no Python.
+Both halves of the tool have now been executed. The offline suite is green, and
+as of 2026-09-02 **the browser-driving half has run against a real Chromium**
+and did what it was designed to do — see "Tests / results". One live test had a
+bad assertion (fixed, re-run pending), and it surfaced known issue 16.
 
-**The very next action is to pull on Kali and run `nwaa setup` then
-`pytest -m integration`**, then record the real output here. See "Exact next
-steps".
+Next: re-run the suite, watch the first CI run, then the manual viewer pass.
+See "Exact next steps".
 
 ## How this project is developed (two machines)
 
@@ -196,10 +195,10 @@ Docs: `CLAUDE.md`, `README.md`, `ARCHITECTURE.md`, `SECURITY.md`, `USAGE.md`.
 
 ## Current work
 
-Session 5's lab server, live tests and CI workflow are committed but **have
-never been executed** — they were written on the Windows box, which has no
-Python. Running them on Kali is the next action, and any of the five live tests
-may need adjusting once a real browser meets a real page.
+Session 5's lab server and live tests have run once on Kali and are green apart
+from one assertion, now fixed on the Windows side and pushed — the fixed test
+has not itself been run. CI has been pushed but its first run has not been
+checked.
 
 ## Tests / results
 
@@ -229,11 +228,38 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
   → report.json + report.txt + report.html all written
 ```
 
-Those numbers are from **session 4** and predate session 5's files. The 147
-offline tests are unaffected by them (the live module skips itself), but nothing
-in session 5 has been run: `pytest -m integration` has never executed, the lab
-server has never served a request, and the CI workflow has never been triggered.
-Replace this paragraph with real output once it has.
+**First live run: 2026-09-02, on Kali as `jose` in the venv.** Chromium was
+already installed, so the live tests ran as part of a plain `pytest`:
+
+```
+1 failed, 152 passed in 13.25s     # 148 offline + 5 live
+```
+
+**The browser-driving half of the tool has now been executed and behaves as
+designed.** Four of the five live tests passed on the first run, with no change
+to any `src/` file:
+
+- the full default-credential chain — screenshot, live banner, `hp-printer` at
+  `source: nessus+http`, the HP profile's blank-password entry returning
+  `default_credentials_successful` and `admin/admin` returning
+  `authentication_failed`, with the lab server confirming exactly two POSTs;
+- the live-banner-only fingerprint (`source: http`);
+- the route guard — the in-scope 1x1 image was requested, the `127.0.0.2` one
+  was not;
+- the out-of-scope login page, refused before navigation with zero requests.
+
+The one failure was **test-side, not tool-side**: the assertion
+`"No password field" in detail` failed because `password` is itself one of the
+HP profile's default passwords, so the redaction registry had scrubbed the word
+out of the detail string (`"No ***REDACTED*** field found on page"`). The
+assertion now checks a phrase that cannot collide with a secret; the underlying
+over-redaction is known issue 16 and is still open.
+
+None of the predicted failure modes (the `_submit` fallback, `networkidle`
+never settling, subresource timing in the scope test) materialised.
+
+Not yet run since that session: the fixed test, `ruff`/`mypy`/`bandit`/
+`pip-audit` against session 5's files, and CI.
 
 Re-run the full gate with:
 
@@ -319,6 +345,17 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
     the guard to host+port would also block a device that legitimately redirects
     its login to another port on itself, which is common on BMCs. Decide
     deliberately; if it changes, the live test needs a case for it.
+16. **Common vendor-default passwords over-redact the reports.** Every bundled
+    default password is registered with `nwaa.redaction` on load, including
+    generic ones like `password`, `admin` and `1234`. `scrub_secrets` then
+    replaces those tokens wherever they appear in any scrubbed string — so
+    `"No password field found on page"` reaches the report as
+    `"No ***REDACTED*** field found on page"`, and a real device whose page
+    title contains the lowercase word would be mangled the same way
+    (`page_title` and `server` are scrubbed; URLs are not). Found by the first
+    live test run, 2026-09-02. The safety net is working exactly as designed;
+    the problem is that public documentation is being treated as a secret.
+    Not changed yet — see "Exact next steps".
 
 ## Security decisions
 
@@ -354,28 +391,30 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
 
 Done in session 4 (do not redo): environment setup, `pytest`/`ruff`/`mypy`/
 `bandit`/`pip-audit`, publishing to GitHub, `pipx` install, and the offline
-end-to-end scan. Done in session 5 (written, not run): the lab server, the live
-tests, and CI. Everything below is genuinely still open, in priority order.
+end-to-end scan. Done in session 5: the lab server, the live tests, and CI —
+written, pushed, and run once on Kali (4 of 5 live tests green on the first
+attempt; the fifth was a bad assertion, now fixed). Everything below is
+genuinely still open, in priority order.
 
-1. **Run session 5's work on Kali.** This is the whole job right now — five
-   tests and a lab server that have never executed.
+1. **Re-run the suite on Kali** with the fixed assertion, and finish the gate
+   that has not seen session 5's files:
 
    ```bash
    cd ~/Documents/nessus-web-auth-audit && git pull
-   source .venv/bin/activate && pip install -e ".[dev]"
-   pytest                     # must stay at 147 passed + 5 skipped
-   nwaa setup                 # if Chromium is not already there
-   pytest -m integration -rs  # the five live tests
-   ruff check . && mypy && bandit -r src
+   source .venv/bin/activate
+   pytest -rs                                # expect 153 passed
+   ruff check . && mypy && bandit -r src && pip-audit
    ```
-
-   Then paste the real output into "Tests / results" above, replacing the
-   session-4 numbers. Expect to fix things — no line of the lab server or the
-   live tests has ever been parsed by an interpreter, let alone run. Likely
-   suspects, in order: the form submit path (`_submit` clicks the first
-   `<button>`), whether `networkidle` is ever reached, and whether the
-   in-scope 1x1 image in the scope test loads before the assertion.
-2. **Push and watch CI.** The `integration` job's `playwright install
+2. **Decide known issue 16 (over-redaction).** The options, in order of
+   preference: (a) stop registering bundled vendor defaults as secrets — they
+   are public documentation the tool itself prints via `nwaa profiles
+   --show-passwords`, and nothing interpolates a password into a report string,
+   so the net protects almost nothing while corrupting real text; (b) keep the
+   net and reword the constants it mangles, which does not help a device's own
+   page title; (c) accept it and document it in the report. Whichever wins,
+   `CLAUDE.md`'s "no secrets in logs or reports" rule and `docs/SECURITY.md`
+   need updating to say what was decided and why.
+3. **Watch the first CI run.** The `integration` job's `playwright install
    --with-deps chromium` on `ubuntu-latest` is the untested part. Fix forward;
    do not disable the job.
 3. **Manual viewer pass on a lab report** — run `python tests/lab_server.py

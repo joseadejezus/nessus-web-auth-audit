@@ -163,7 +163,11 @@ def test_page_without_a_password_field_is_not_tested(lab_target, tmp_path):
 
     attempt = report["credential_attempts"][0]
     assert attempt["verdict"] == "not_tested"
-    assert "No password field" in attempt["detail"]
+    # Not "No password field ...": "password" is itself one of the HP profile's
+    # default passwords, so the redaction registry scrubs that word out of the
+    # detail string. Assert the half that cannot collide with a secret.
+    # See known issue 16 in docs/PROJECT_STATE.md.
+    assert "not a form-based login this tool can drive" in attempt["detail"]
     assert lab_target.requests_for(lab.LOGIN_PATH, "POST") == []
 
 
