@@ -4,13 +4,13 @@ _Last updated: 2026-09-02_
 
 ## Where to pick up
 
-Both halves of the tool have now been executed. The offline suite is green, and
-as of 2026-09-02 **the browser-driving half has run against a real Chromium**
-and did what it was designed to do — see "Tests / results". One live test had a
-bad assertion (fixed, re-run pending), and it surfaced known issue 16.
+Both halves of the tool have now been executed and the **full gate is green on
+Kali**: 154 tests (149 offline + 5 live), `ruff`/`mypy`/`bandit` clean. As of
+2026-09-02 the browser-driving half has run against a real Chromium and did what
+it was designed to do — see "Tests / results".
 
-Next: re-run the suite, watch the first CI run, then the manual viewer pass.
-See "Exact next steps".
+Next: look at the first CI run, then the manual viewer pass. See "Exact next
+steps".
 
 ## How this project is developed (two machines)
 
@@ -85,6 +85,11 @@ results".
   the rule it replaces are under "Security decisions"; `CLAUDE.md` and
   `docs/SECURITY.md` were rewritten to match rather than left contradicting the
   code.
+- **`# nosec` prose moved above the pragma** in `browser.py`. Bandit reads
+  everything after `# nosec` as a list of test ids, so the B404 justification
+  produced nine `Test in comment: <word> is not a test name or id` warnings on
+  every run. The annotation is now `# nosec B404` with the reason on the lines
+  above it. Same suppression, readable output.
 
 ### Session 4 — first execution, publish, README
 
@@ -201,10 +206,9 @@ Docs: `CLAUDE.md`, `README.md`, `ARCHITECTURE.md`, `SECURITY.md`, `USAGE.md`.
 
 ## Current work
 
-Session 5's lab server and live tests have run once on Kali and are green apart
-from one assertion, now fixed on the Windows side and pushed — the fixed test
-has not itself been run. CI has been pushed but its first run has not been
-checked.
+None in progress. The full gate is green on Kali (see "Tests / results"). CI has
+been pushed but its first run has not been looked at, and the manual viewer pass
+has not been done.
 
 ## Tests / results
 
@@ -234,7 +238,20 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
   → report.json + report.txt + report.html all written
 ```
 
-**First live run: 2026-09-02, on Kali as `jose` in the venv.** Chromium was
+**Full gate, green: 2026-09-02, on Kali as `jose` in the venv (Python 3.14.6,
+Playwright 1.62.0), after the two fixes below.**
+
+```
+pytest        154 passed in 12.88s   # 149 offline + 5 live
+ruff check .  All checks passed!
+mypy          Success: no issues found in 17 source files
+bandit -r src No issues identified (2973 LOC, 0 skipped)
+pip-audit     1 vulnerability: pip 26.1.2 (PYSEC-2026-3721, fixed in 26.2) — the
+              venv's own pip, unchanged since session 4. No nwaa dependency is
+              affected; nwaa itself is skipped (not on PyPI).
+```
+
+**First live run: 2026-09-02, same day**, before those fixes. Chromium was
 already installed, so the live tests ran as part of a plain `pytest`:
 
 ```
@@ -257,15 +274,14 @@ to any `src/` file:
 The one failure was **test-side, not tool-side**: the assertion
 `"No password field" in detail` failed because `password` is itself one of the
 HP profile's default passwords, so the redaction registry had scrubbed the word
-out of the detail string (`"No ***REDACTED*** field found on page"`). The
-assertion now checks a phrase that cannot collide with a secret; the underlying
-over-redaction is known issue 16 and is still open.
+out of the detail string (`"No ***REDACTED*** field found on page"`). That led
+to the redaction change under "Security decisions"; the live test now asserts
+the full sentence, so the report text is its own regression test.
 
 None of the predicted failure modes (the `_submit` fallback, `networkidle`
 never settling, subresource timing in the scope test) materialised.
 
-Not yet run since that session: the fixed test, `ruff`/`mypy`/`bandit`/
-`pip-audit` against session 5's files, and CI.
+Still not run: CI.
 
 Re-run the full gate with:
 
@@ -353,6 +369,15 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
     deliberately; if it changes, the live test needs a case for it.
 16. ~~Common vendor-default passwords over-redact the reports.~~ Fixed
     2026-09-02, same day it was found — see "Security decisions".
+17. **Playwright prints asyncio teardown noise after the test summary.** Two
+    `Task was destroyed but it is pending` / `TargetClosedError` blocks appear
+    on stderr *after* `154 passed`, from `playwright/_impl/_connection.py` at
+    interpreter shutdown on Python 3.14. Cosmetic: it happens after every test
+    has finished, does not change the exit code, and nwaa's own teardown is
+    correct (`browser.close()` in a `finally`, inside the `sync_playwright()`
+    context manager). It is inside Playwright, not this repo. If it ever
+    obscures a real failure in CI logs, the fix is a Playwright upgrade, not a
+    change here.
 
 ## Security decisions
 
@@ -402,23 +427,13 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
 Done in session 4 (do not redo): environment setup, `pytest`/`ruff`/`mypy`/
 `bandit`/`pip-audit`, publishing to GitHub, `pipx` install, and the offline
 end-to-end scan. Done in session 5: the lab server, the live tests, and CI —
-written, pushed, and run once on Kali (4 of 5 live tests green on the first
-attempt; the fifth was a bad assertion, now fixed). Everything below is
-genuinely still open, in priority order.
+written, pushed, and run on Kali with the full gate green (154 tests, ruff,
+mypy, bandit). Everything below is genuinely still open, in priority order.
 
-1. **Re-run the suite on Kali** with the fixed assertion, and finish the gate
-   that has not seen session 5's files:
-
-   ```bash
-   cd ~/Documents/nessus-web-auth-audit && git pull
-   source .venv/bin/activate
-   pytest -rs                                # expect 154 passed
-   ruff check . && mypy && bandit -r src && pip-audit
-   ```
-2. **Watch the first CI run.** The `integration` job's `playwright install
+1. **Watch the first CI run.** The `integration` job's `playwright install
    --with-deps chromium` on `ubuntu-latest` is the untested part. Fix forward;
    do not disable the job.
-3. **Manual viewer pass on a lab report** — run `python tests/lab_server.py
+2. **Manual viewer pass on a lab report** — run `python tests/lab_server.py
    --port 8080 --write-nessus /tmp/lab.nessus`, scan it with `--authorized
    --default-creds`, then open `report.html` and exercise the three things
    known issue 3 still lists as unverified: `<dialog>.showModal()` for the
@@ -432,5 +447,4 @@ genuinely still open, in priority order.
    42 profiles as documentation-derived guesses (known issue 10).
 6. Decide known issue 15 (host-level route guard) deliberately, one way or the
    other, and write the outcome down.
-7. Tag `v0.2.0` with release notes once 1–3 are green. The README's status
-   table should stop saying "first run pending" at the same moment.
+7. Tag `v0.2.0` with release notes once 1–2 are done.

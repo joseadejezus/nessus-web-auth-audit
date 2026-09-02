@@ -31,7 +31,10 @@ import logging
 import os
 import platform
 import shutil
-import subprocess  # nosec B404 - only used for the fixed playwright install argv below
+# Justification kept above the pragma, not after it: bandit reads everything
+# following "# nosec" as a list of test ids and warns about each prose word.
+# Only used for the fixed 'playwright install' argv in install_browser().
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 
