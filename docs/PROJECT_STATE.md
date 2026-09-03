@@ -1,16 +1,16 @@
 # Project state
 
-_Last updated: 2026-09-02_
+_Last updated: 2026-09-03_
 
 ## Where to pick up
 
-Both halves of the tool have now been executed and the **full gate is green on
-Kali**: 154 tests (149 offline + 5 live), `ruff`/`mypy`/`bandit` clean. As of
-2026-09-02 the browser-driving half has run against a real Chromium and did what
-it was designed to do — see "Tests / results".
+Both halves of the tool have been executed and the **full gate is green on
+Kali**: 192 tests (182 offline + 10 driving a real browser),
+`ruff`/`mypy`/`bandit` clean as of 2026-09-03. The browser-driving code, the
+HTML viewer's JavaScript, and all 66 device profiles have each been run.
 
-Next: look at the first CI run, then the manual viewer pass. See "Exact next
-steps".
+What is left needs hardware, a decision, or a look at a web page — see "Exact
+next steps".
 
 ## How this project is developed (two machines)
 
@@ -27,7 +27,7 @@ Playwright use `/root` and you get a second, invisible install.
 
 ## Completed work
 
-### Session 6 — 24 profiles for a branch-office estate (written; not run)
+### Session 6 — 24 profiles for a branch-office estate
 
 Requested for cooperativa (credit union) work in Puerto Rico, where the estate
 behind a branch login page looks nothing like a datacenter: a small firewall at
@@ -263,10 +263,9 @@ Docs: `CLAUDE.md`, `README.md`, `ARCHITECTURE.md`, `SECURITY.md`, `USAGE.md`.
 
 ## Current work
 
-Session 6's 24 new device profiles are written but **have not been run** — the
-new tests, the JSON schema validation on load, and `nwaa profiles` output are
-all unexercised. Everything before that is green on Kali (159 tests); CI's state
-after the `ruff I001` fix and the viewer module has not been checked.
+None in progress. Everything written so far has been run and is green (192
+tests). CI's state after the `ruff I001` fix, the viewer module and session 6
+has not been looked at.
 
 ## Tests / results
 
@@ -295,6 +294,22 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
   → 10.10.10.22:80  no fingerprint (plain nginx) — the negative case works
   → report.json + report.txt + report.html all written
 ```
+
+**Full gate, green: 2026-09-03, on Kali as `jose` in the venv — the current
+numbers.**
+
+```
+pytest        192 passed in 20.58s   # 182 offline + 10 live
+ruff check .  All checks passed!
+mypy          Success: no issues found in 17 source files
+bandit -r src No issues identified (3111 LOC) — and with no "Test in comment"
+              warnings, confirming the B404 pragma fix
+```
+
+That run was the first to exercise session 6's 24 profiles: the JSON schema
+validates on load, all 24 banners select their own profile, the decoys match
+nothing, and `nwaa profiles` lists 66 profiles with their notes. No fixes were
+needed.
 
 **Viewer tests, green on their first run: 2026-09-02.**
 
@@ -509,11 +524,6 @@ tests, and CI — written, pushed, and run on Kali (159 tests; the full
 ruff/mypy/bandit gate was green at 154, before the viewer module). Everything
 below is genuinely still open, in priority order.
 
-0. **Run session 6's profiles.** `pytest tests/test_fingerprint.py
-   tests/test_default_creds.py -v` first (the JSON is validated at load, so a
-   malformed profile fails every test that touches the database), then
-   `nwaa profiles` to eyeball the listing, then the full gate. 24 signatures
-   and 25 credentials written on a machine that cannot parse them.
 1. **Confirm CI is green again.** It works: `playwright install --with-deps
    chromium` on `ubuntu-latest` succeeds and the `live browser tests` job has
    passed on every run so far, including the two that failed overall. Those two

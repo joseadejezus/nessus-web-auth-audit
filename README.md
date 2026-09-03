@@ -206,7 +206,7 @@ Credentials come from exactly two places: your JSON file, or the bundled profile
 
 | | |
 | --- | --- |
-| ✅ | 159 tests on Kali — 149 offline, 10 driving a real browser; `ruff`, `mypy`, `bandit` clean |
+| ✅ | 192 tests on Kali — 182 offline, 10 driving a real browser; `ruff`, `mypy`, `bandit` clean |
 | ✅ | Parsing, classification, fingerprinting, and all three report formats |
 | ✅ | Browser-driving code — screenshots, live probing, credential submission, the scope guard — exercised by live tests (`pytest -m integration`) against a loopback lab device |
 | ✅ | The HTML viewer, driven in a browser: every tab, the verdict chips, the screenshot lightbox, embedded images |
