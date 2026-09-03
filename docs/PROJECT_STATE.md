@@ -27,6 +27,50 @@ Playwright use `/root` and you get a second, invisible install.
 
 ## Completed work
 
+### Session 6 — 24 profiles for a branch-office estate (written; not run)
+
+Requested for cooperativa (credit union) work in Puerto Rico, where the estate
+behind a branch login page looks nothing like a datacenter: a small firewall at
+the edge, a UPS in every closet because the grid is what it is, cameras and a
+recorder the regulator requires, a biometric clock by the staff door, and desk
+phones. 42 profiles → **66**; 108 → **133** published credentials.
+
+- **Edge security** (new `firewall` category): `fortinet-fortigate`,
+  `sonicwall-firewall`, `watchguard-firebox`, `sophos-firewall`,
+  `pfsense-firewall`, `barracuda-appliance`.
+- **UPS / power**: `eaton-ups`, `tripplite-ups`, `cyberpower-ups`,
+  `vertiv-liebert`, joining the existing `apc-ups` under a "power" heading.
+- **Cameras**: `hanwha-camera` (Wisenet/Samsung Techwin), `uniview-camera`,
+  `avigilon-camera`.
+- **Access control** (new `access` category): `zkteco-access`, `hid-access`.
+- **Telephony** (new `voip` category): `grandstream-device`, `yealink-phone`,
+  `polycom-phone`, `avaya-ipoffice`.
+- **Wireless / compute**: `aruba-instant`, `ruckus-wireless`, `cisco-cimc`,
+  `nutanix-prism`, `proxmox-ve`.
+
+Deliberate choices worth keeping:
+
+- **Ordering matters and is now load-bearing in two places.** `cisco-cimc` sits
+  *before* `cisco-device` and `aruba-instant` *before* `hp-procurve`, because
+  ties in pattern count are broken by position and both pairs share a vendor
+  string ("Cisco", "ArubaOS"). A switch and a lights-out controller do not take
+  the same credentials. Two tests pin this.
+- **One or two credentials per profile, not four.** Every entry is a documented
+  factory default; nothing was padded out with plausible guesses. The per-page
+  cap means a padded list would only crowd out the real default.
+- **`proxmox-ve` ships empty**, joining iLO/ESXi/Jenkins: the root password is
+  chosen by whoever ran the installer. The signature still earns its place —
+  finding a hypervisor console on a user VLAN is a finding by itself.
+- **No ATM, teller-recycler or core-banking profiles.** Those have no published
+  factory web default; anything bundled would be a guess aimed at the most
+  sensitive host in the building. `--credentials` covers an operator who has
+  been given real ones.
+- Tests: a `COOP_BANNERS` table with one representative banner per new profile,
+  parametrized so each must select *its own* profile — mutual exclusion is the
+  negative test, since a banner selecting the wrong vendor is exactly how the
+  wrong credentials reach a live device. Plus decoys that must match nothing,
+  including Spanish-language member-portal titles, and the two ordering tests.
+
 ### Session 5 — a lab target, live tests, CI (written on Windows; not run)
 
 The point of this session was to stop the browser-driving half of the tool from
@@ -219,10 +263,10 @@ Docs: `CLAUDE.md`, `README.md`, `ARCHITECTURE.md`, `SECURITY.md`, `USAGE.md`.
 
 ## Current work
 
-None in progress. 159 tests — 149 offline, 10 driving a real browser — with the
-live half green on Kali. Outstanding: confirm CI is green after the `ruff I001`
-fix and the viewer module, then the items below that need hardware or a
-decision.
+Session 6's 24 new device profiles are written but **have not been run** — the
+new tests, the JSON schema validation on load, and `nwaa profiles` output are
+all unexercised. Everything before that is green on Kali (159 tests); CI's state
+after the `ruff I001` fix and the viewer module has not been checked.
 
 ## Tests / results
 
@@ -375,7 +419,11 @@ nwaa scan --nessus tests/fixtures/devices.nessus --out ./out
     likeliest failure modes are a missed match (falls back to `generic-*`, or to
     no default credentials at all — safe) and a wrong match sending one vendor's
     defaults at another's device (`--profile` overrides; tighten the signature
-    and add a regression test).
+    and add a regression test). This applies with full force to the 24 profiles
+    added on 2026-09-03 (firewalls, UPS cards, cameras, access control,
+    telephony) — the banner strings in `COOP_BANNERS` are how those devices are
+    *documented* to identify themselves, not captured traffic. Every banner seen
+    on a real engagement is worth pasting into that table.
 11. **The bundled defaults are vendor-published, not per-unit.** Firmware
     revisions have moved several vendors (Axis, Hikvision, Supermicro, iDRAC9)
     to per-unit or forced-set passwords. "Nothing worked" is not evidence of
@@ -461,6 +509,11 @@ tests, and CI — written, pushed, and run on Kali (159 tests; the full
 ruff/mypy/bandit gate was green at 154, before the viewer module). Everything
 below is genuinely still open, in priority order.
 
+0. **Run session 6's profiles.** `pytest tests/test_fingerprint.py
+   tests/test_default_creds.py -v` first (the JSON is validated at load, so a
+   malformed profile fails every test that touches the database), then
+   `nwaa profiles` to eyeball the listing, then the full gate. 24 signatures
+   and 25 credentials written on a machine that cannot parse them.
 1. **Confirm CI is green again.** It works: `playwright install --with-deps
    chromium` on `ubuntu-latest` succeeds and the `live browser tests` job has
    passed on every run so far, including the two that failed overall. Those two
@@ -470,9 +523,11 @@ below is genuinely still open, in priority order.
 2. `nwaa setup --check` as root **and** as `jose`, confirming the browsers path
    and `--no-sandbox` reporting match reality on each (known issue 13).
 3. **Validate signatures against real devices** in a lab: at minimum an HP MFP,
-   an iDRAC, and one camera. Record any banner that fails to match and tighten
-   or add a signature with a regression test. Until this is done, treat the
-   42 profiles as documentation-derived guesses (known issue 10).
+   an iDRAC, a camera, and — now that the branch-estate batch exists — a
+   FortiGate or SonicWall and one UPS network card. Record any banner that
+   fails to match and tighten or add a signature with a regression test in
+   `COOP_BANNERS`. Until this is done, treat all 66 profiles as
+   documentation-derived guesses (known issue 10).
 4. Decide known issue 15 (host-level route guard) deliberately, one way or the
    other, and write the outcome down.
 5. Tag `v0.2.0` with release notes once CI is green.

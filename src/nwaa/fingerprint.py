@@ -170,6 +170,15 @@ SIGNATURES: tuple[Signature, ...] = (
         r"Baseboard\s+Management\s+Controller",
     ),
     # ---- network / infrastructure ---------------------------------------
+    # CIMC before the general Cisco signature: on a tie in pattern count the
+    # earlier entry wins, and a server's management controller takes very
+    # different credentials from a switch.
+    _sig(
+        "cisco-cimc", "Cisco UCS Integrated Management Controller", "Cisco", "bmc",
+        r"\bCIMC\b",
+        r"Integrated\s+Management\s+Controller",
+        r"\bUCS[-\s]?[CBS]\d{3}\b",
+    ),
     _sig(
         "cisco-device", "Cisco device web UI", "Cisco", "network",
         r"\bCisco\b",
@@ -205,15 +214,86 @@ SIGNATURES: tuple[Signature, ...] = (
         "zyxel-device", "Zyxel device", "Zyxel", "network",
         r"\bZyXEL\b|\bZyWALL\b",
     ),
+    # Instant APs before ProCurve: both report "ArubaOS", but only an Instant
+    # cluster answers to the controller default below.
+    _sig(
+        "aruba-instant", "Aruba Instant access point / virtual controller", "HPE/Aruba", "network",
+        r"Aruba\s+Instant\b",
+        r"\bIAP-\d{3}\b",
+        r"Instant\s+Access\s+Point",
+    ),
     _sig(
         "hp-procurve", "HP/Aruba ProCurve switch", "HPE/Aruba", "network",
         r"\bProCurve\b|\bArubaOS\b|Aruba\s+\d{4}\s+Switch",
     ),
     _sig(
+        "ruckus-wireless", "Ruckus ZoneDirector / Unleashed", "Ruckus/CommScope", "network",
+        r"\bRuckus\b",
+        r"\bZoneDirector\b|\bZoneFlex\b|\bUnleashed\b",
+        r"\bSmartZone\b",
+    ),
+    # ---- edge security appliances ---------------------------------------
+    # The branch firewall is usually the one device on the perimeter, and the
+    # one most likely to have been racked by a contractor in a hurry.
+    _sig(
+        "fortinet-fortigate", "Fortinet FortiGate / FortiWiFi", "Fortinet", "firewall",
+        r"\bFortiGate\b|\bFortiWiFi\b",
+        r"\bFortiOS\b|\bFortinet\b",
+        r"\bFGT[0-9A-Z]{2,}\b",
+    ),
+    _sig(
+        "sonicwall-firewall", "SonicWall firewall", "SonicWall", "firewall",
+        r"\bSonicWALL\b",
+        r"\bSonicOS\b",
+    ),
+    _sig(
+        "watchguard-firebox", "WatchGuard Firebox", "WatchGuard", "firewall",
+        r"\bWatchGuard\b",
+        r"\bFirebox\b|\bFireware\b",
+    ),
+    _sig(
+        "sophos-firewall", "Sophos firewall (XG / SFOS)", "Sophos", "firewall",
+        r"\bSophos\b",
+        r"\bSFOS\b|Sophos\s+(XG|UTM|Firewall)",
+    ),
+    _sig(
+        "pfsense-firewall", "pfSense / Netgate firewall", "Netgate", "firewall",
+        r"\bpfSense\b",
+        r"\bNetgate\b",
+    ),
+    _sig(
+        "barracuda-appliance", "Barracuda appliance", "Barracuda", "firewall",
+        r"\bBarracuda\b",
+    ),
+    # ---- power / UPS ------------------------------------------------------
+    # Every branch closet has one, they are almost never in the asset
+    # inventory, and they hold a network card with its own login.
+    _sig(
         "apc-ups", "APC / Schneider network management card", "APC", "power",
         r"\bAPC\b.*(Management|UPS|Web/SNMP)",
         r"Network\s+Management\s+Card",
         r"Schneider\s+Electric",
+    ),
+    _sig(
+        "eaton-ups", "Eaton UPS network card", "Eaton", "power",
+        r"\bEaton\b",
+        r"\bNetwork[-\s]M2\b|\bPower\s*Xpert\b|\bPowerware\b",
+        r"\bePDU\b",
+    ),
+    _sig(
+        "tripplite-ups", "Tripp Lite UPS / PDU (PowerAlert)", "Tripp Lite", "power",
+        r"Tripp\s*Lite",
+        r"\bPowerAlert\b",
+    ),
+    _sig(
+        "cyberpower-ups", "CyberPower UPS (RMCARD)", "CyberPower", "power",
+        r"\bCyberPower\b",
+        r"\bRMCARD\d*|\bPowerPanel\b",
+    ),
+    _sig(
+        "vertiv-liebert", "Vertiv / Liebert UPS (IntelliSlot)", "Vertiv", "power",
+        r"\bVertiv\b|\bLiebert\b",
+        r"\bIntelliSlot\b",
     ),
     # ---- cameras / physical security ------------------------------------
     _sig(
@@ -237,6 +317,36 @@ SIGNATURES: tuple[Signature, ...] = (
         "vivotek-camera", "Vivotek camera", "Vivotek", "camera",
         r"\bVIVOTEK\b",
     ),
+    _sig(
+        "hanwha-camera", "Hanwha Vision / Wisenet camera", "Hanwha", "camera",
+        r"\bHanwha\b|\bWisenet\b",
+        r"Samsung\s+Techwin",
+        r"\b(SNB|SND|SNP|SNO|XNB|XND|XNO|XNP|QND|QNO|PND|PNO)-[A-Z0-9]{4,}\b",
+    ),
+    _sig(
+        "uniview-camera", "Uniview (UNV) camera / NVR", "Uniview", "camera",
+        r"\bUniview\b",
+        r"\bUNV\b",
+    ),
+    _sig(
+        "avigilon-camera", "Avigilon camera", "Avigilon", "camera",
+        r"\bAvigilon\b",
+    ),
+    # ---- access control / time and attendance ----------------------------
+    # Door controllers and biometric clocks answer on the same VLAN as
+    # everything else and are almost never patched or re-passworded.
+    _sig(
+        "zkteco-access", "ZKTeco access control / time clock", "ZKTeco", "access",
+        r"\bZKTeco\b|\bZKSoftware\b",
+        r"\bZKBio\b|\bBioTime\b|\bZKAccess\b",
+        r"\biClock\d*",
+    ),
+    _sig(
+        "hid-access", "HID VertX / EDGE door controller", "HID Global", "access",
+        r"\bVertX\b",
+        r"HID\s+(Global|EDGE)",
+        r"\bEdgeReader\b",
+    ),
     # ---- storage / appliances -------------------------------------------
     _sig(
         "synology-nas", "Synology DiskStation", "Synology", "storage",
@@ -245,6 +355,41 @@ SIGNATURES: tuple[Signature, ...] = (
     _sig(
         "qnap-nas", "QNAP NAS", "QNAP", "storage",
         r"\bQNAP\b|\bQTS\b\s|\bTurbo\s*NAS\b",
+    ),
+    # ---- telephony --------------------------------------------------------
+    # Branch phone systems and handsets: each handset is a web server, and a
+    # PBX login is a route to call records and toll fraud.
+    _sig(
+        "grandstream-device", "Grandstream phone / gateway / UCM", "Grandstream", "voip",
+        r"\bGrandstream\b",
+        r"\b(GXP|GXV|GDS|GWN|UCM)\d{3,4}\b",
+    ),
+    _sig(
+        "yealink-phone", "Yealink IP phone", "Yealink", "voip",
+        r"\bYealink\b",
+        r"\bSIP-T\d{2}[A-Z]?\b",
+    ),
+    _sig(
+        "polycom-phone", "Poly / Polycom IP phone", "Poly", "voip",
+        r"\bPolycom\b",
+        r"\bVVX\s?\d{3}\b|\bSoundPoint\b|\bSoundStation\b",
+        r"\bRealPresence\b",
+    ),
+    _sig(
+        "avaya-ipoffice", "Avaya IP Office", "Avaya", "voip",
+        r"\bAvaya\b",
+        r"IP\s+Office",
+    ),
+    # ---- virtualization ---------------------------------------------------
+    _sig(
+        "nutanix-prism", "Nutanix Prism", "Nutanix", "virtualization",
+        r"\bNutanix\b",
+        r"\bPrism\s+(Element|Central)\b",
+    ),
+    _sig(
+        "proxmox-ve", "Proxmox Virtual Environment", "Proxmox", "virtualization",
+        r"\bProxmox\b",
+        r"Virtual\s+Environment.*Proxmox|Proxmox\s+VE",
     ),
     _sig(
         "vmware-esxi", "VMware ESXi / vSphere", "VMware", "virtualization",

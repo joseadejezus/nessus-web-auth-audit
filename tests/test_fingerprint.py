@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from nwaa.fingerprint import (
     SIGNATURES,
     fingerprint_from_probe,
@@ -102,3 +104,87 @@ def test_manual_fingerprint_tolerates_an_unknown_id():
 def test_signature_profile_ids_are_unique():
     ids = [sig.profile_id for sig in SIGNATURES]
     assert len(ids) == len(set(ids))
+
+
+# --- profiles added for a Puerto Rico cooperativa estate -------------------
+#
+# One representative banner per profile, written the way the device's own
+# Server header or <title> reads. The table doubles as the negative test: a
+# banner that selected a *different* vendor's profile would send that vendor's
+# default credentials at a live device, which is the failure mode this whole
+# signature table exists to avoid.
+COOP_BANNERS = [
+    ("fortinet-fortigate", "FortiGate-60F login | FortiOS 7.2.5"),
+    ("sonicwall-firewall", "SonicWALL - Authentication (SonicOS 6.5)"),
+    ("watchguard-firebox", "WatchGuard Firebox T40 - Fireware Web UI"),
+    ("sophos-firewall", "Sophos Firewall (SFOS 19.5) - Admin login"),
+    ("pfsense-firewall", "Login | pfSense - Netgate SG-2100"),
+    ("barracuda-appliance", "Barracuda Web Application Firewall"),
+    ("eaton-ups", "Eaton Network-M2 - UPS status"),
+    ("tripplite-ups", "Tripp Lite PowerAlert Network Management Card"),
+    ("cyberpower-ups", "CyberPower RMCARD205 Remote Management"),
+    ("vertiv-liebert", "Vertiv Liebert IntelliSlot Unity card"),
+    ("hanwha-camera", "Wisenet XND-6080 Network Camera (Hanwha Vision)"),
+    ("uniview-camera", "Uniview NVR301-08 Network Video Recorder"),
+    ("avigilon-camera", "Avigilon H4A camera web interface"),
+    ("zkteco-access", "ZKTeco iClock880 attendance terminal"),
+    ("hid-access", "HID VertX EVO V1000 controller"),
+    ("aruba-instant", "Aruba Instant Virtual Controller - IAP-315"),
+    ("ruckus-wireless", "Ruckus ZoneDirector 1200 admin"),
+    ("grandstream-device", "Grandstream GXP2170 Web Configuration"),
+    ("yealink-phone", "Yealink SIP-T46G Web User Interface"),
+    ("polycom-phone", "Polycom VVX 411 Utilities Login"),
+    ("avaya-ipoffice", "Avaya IP Office Web Manager"),
+    ("cisco-cimc", "Cisco Integrated Management Controller - UCS-C220 M5"),
+    ("nutanix-prism", "Nutanix Prism Element"),
+    ("proxmox-ve", "Proxmox Virtual Environment 8.1"),
+]
+
+
+@pytest.mark.parametrize(
+    ("profile_id", "banner"), COOP_BANNERS, ids=[entry[0] for entry in COOP_BANNERS]
+)
+def test_coop_banner_selects_exactly_its_own_profile(profile_id, banner):
+    fingerprint = match_signatures(banner, source="http")
+    assert fingerprint is not None, f"{profile_id}: banner matched no signature at all"
+    assert fingerprint.profile_id == profile_id, (
+        f"{profile_id}: banner selected {fingerprint.profile_id} instead — that would send "
+        f"the wrong vendor's default credentials"
+    )
+    assert fingerprint.evidence
+
+
+@pytest.mark.parametrize(
+    "banner",
+    [
+        "Cooperativa de Ahorro y Crédito — Acceso de Socios",
+        "Portal del Socio - inicie sesión",
+        "Server: Apache/2.4.57 (Debian)",
+        "Server: Microsoft-IIS/10.0",
+        "Server: nginx/1.24.0",
+        "Online Banking Login",
+    ],
+)
+def test_ordinary_web_logins_are_not_fingerprinted(banner):
+    """A member portal is not a device. Guessing one into a vendor profile is
+    how a default-credential run ends up submitting logins to a core system."""
+    assert match_signatures(banner, source="http") is None
+
+
+def test_aruba_switch_and_instant_ap_stay_apart():
+    """Both report ArubaOS, and they do not take the same credentials."""
+    switch = match_signatures("ArubaOS ProCurve Switch 2530", source="http")
+    instant = match_signatures("Aruba Instant Virtual Controller", source="http")
+    assert switch is not None and switch.profile_id == "hp-procurve"
+    assert instant is not None and instant.profile_id == "aruba-instant"
+
+
+def test_cisco_switch_is_not_mistaken_for_a_management_controller():
+    switch = match_signatures("Cisco IOS Software, C2960 Software", source="http")
+    assert switch is not None and switch.profile_id == "cisco-device"
+
+
+def test_coop_banner_table_names_real_signatures():
+    known = {sig.profile_id for sig in SIGNATURES}
+    unknown = sorted({profile_id for profile_id, _ in COOP_BANNERS} - known)
+    assert not unknown, f"banner table names signatures that do not exist: {unknown}"

@@ -15,7 +15,7 @@
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![platform](https://img.shields.io/badge/platform-Kali%20Linux-557C94)
-![profiles](https://img.shields.io/badge/device%20profiles-42-brightgreen)
+![profiles](https://img.shields.io/badge/device%20profiles-66-brightgreen)
 ![status](https://img.shields.io/badge/status-alpha-orange)
 
 nwaa reads a Nessus scan, finds the web login pages hiding in it, works out **what kind of device is answering** — an HP MFP, a Dell iDRAC, a Tomcat manager, an Axis camera — and tries *that vendor's* published default credentials against it. Everything lands in a self-contained HTML report you can hand to a client.
@@ -161,19 +161,25 @@ Full flag reference: [docs/USAGE.md](docs/USAGE.md).
 
 ## Device coverage
 
-42 profiles, 108 published factory credentials.
+66 profiles, 133 published factory credentials.
 
 | Category | Vendors |
 | --- | --- |
 | **Printers / MFPs** (13) | HP, Xerox, Lexmark, Ricoh, Brother, Canon, Konica Minolta, Kyocera, Epson, Sharp, Dell, Zebra |
-| **Network** (8) | Cisco, Ubiquiti, MikroTik, NETGEAR, TP-Link, D-Link, Zyxel, HP/Aruba ProCurve |
-| **BMC / lights-out** (5) | Dell iDRAC, HPE iLO, Supermicro IPMI, IBM/Lenovo IMM, generic IPMI |
-| **Cameras / NVR** (5) | Axis, Hikvision, Dahua, Vivotek, generic |
+| **Network / wireless** (10) | Cisco, Ubiquiti, MikroTik, NETGEAR, TP-Link, D-Link, Zyxel, HP/Aruba ProCurve, Aruba Instant, Ruckus |
+| **Edge security** (6) | FortiGate, SonicWall, WatchGuard Firebox, Sophos, pfSense/Netgate, Barracuda |
+| **Cameras / NVR** (8) | Axis, Hikvision, Dahua, Vivotek, Hanwha/Wisenet, Uniview, Avigilon, generic |
+| **UPS / power** (5) | APC/Schneider, Eaton, Tripp Lite, CyberPower, Vertiv/Liebert |
+| **BMC / lights-out** (6) | Dell iDRAC, HPE iLO, Supermicro IPMI, IBM/Lenovo IMM, Cisco CIMC, generic IPMI |
+| **Telephony** (4) | Grandstream, Yealink, Poly/Polycom, Avaya IP Office |
+| **Access control** (2) | ZKTeco, HID VertX/EDGE |
+| **Storage / virtualization** (5) | Synology, QNAP, VMware ESXi, Nutanix Prism, Proxmox VE |
 | **App servers** (4) | Tomcat, JBoss/WildFly, WebLogic, GlassFish |
 | **Web apps** (3) | Grafana, Jenkins, phpMyAdmin |
-| **Storage / power / virt** (4) | Synology, QNAP, APC, VMware ESXi |
 
-Three profiles — **HPE iLO, ESXi, Jenkins** — ship deliberately empty. Those devices have no fixed factory password (per-unit chassis tag, installer-set, or generated at first run), so nwaa reports that fact instead of guessing.
+The coverage is aimed at a **branch-office estate** rather than a datacenter: the firewall at the edge, the UPS nobody has in the asset inventory, the recorder behind the cameras, the time clock by the staff door, and the phones on the desks. Those are the boxes that get racked once and never logged into again.
+
+Four profiles — **HPE iLO, VMware ESXi, Jenkins, Proxmox VE** — ship deliberately empty. Those have no fixed factory password (per-unit chassis tag, installer-set, or generated at first run), so nwaa reports that fact instead of guessing. Their login pages are still worth reporting on their own: a hypervisor console answering on a user VLAN is a finding regardless of its password.
 
 ---
 
